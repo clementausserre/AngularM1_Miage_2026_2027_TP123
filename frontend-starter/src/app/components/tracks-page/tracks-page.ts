@@ -1,3 +1,4 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { Component, inject, signal } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { Track } from '../../shared/models/track.model';
@@ -15,6 +16,7 @@ export class TracksPageComponent {
   readonly page = signal(1);
   readonly pages = signal(1);
   readonly loading = signal(false);
+  readonly error = signal('');
   readonly audioUrl = signal('');
   readonly title = new FormControl('', { nonNullable: true });
   file?: File;
@@ -29,6 +31,7 @@ export class TracksPageComponent {
   }
 
   load(): void {
+    this.error.set('');
     this.loading.set(true);
     this.service.list(this.page()).subscribe({
       next: (response) => {
@@ -37,8 +40,11 @@ export class TracksPageComponent {
         this.pages.set(response.pages);
         this.loading.set(false);
       },
-      error: (error) => {
+      error: (error: HttpErrorResponse) => {
         console.error('[TracksPage] Chargement impossible', error);
+        this.error.set(error.status === 0
+          ? 'Impossible de joindre le serveur. Vérifiez votre connexion puis réessayez.'
+          : 'Impossible de charger les pistes. Veuillez réessayer.');
         this.loading.set(false);
       },
     });

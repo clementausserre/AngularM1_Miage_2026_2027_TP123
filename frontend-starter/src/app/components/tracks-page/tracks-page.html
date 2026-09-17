@@ -16,11 +16,15 @@
     <article class="card">
       <div class="row">
         <h2>Mes pistes</h2>
-        <button type="button" (click)="load()">Actualiser</button>
+        <button type="button" (click)="load()" [disabled]="loading()">Actualiser</button>
       </div>
       @if (loading()) {
         <p>Chargement…</p>
       }
+      @else if (error()) {
+        <p class="error" role="alert">{{ error() }}</p>
+        <button type="button" (click)="load()">Réessayer</button>
+      } @else {
       @for (track of tracks(); track track.id) {
         <div class="track">
           <div>
@@ -37,6 +41,7 @@
         <span>Page {{ page() }} / {{ pages() }}</span>
         <button type="button" (click)="go(page() + 1)" [disabled]="page() === pages()">Suiv.</button>
       </div>
+      }
       @if (audioUrl()) {
         <audio [src]="audioUrl()" controls autoplay></audio>
       }

@@ -1,1 +1,4 @@
 :host { display: block; }
+nav { align-items: center; flex-wrap: wrap; }
+nav button { border: 1px solid currentColor; font: inherit; }
+nav a:focus-visible, nav button:focus-visible { outline: 2px solid white; outline-offset: 4px; }

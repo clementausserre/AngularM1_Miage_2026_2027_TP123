@@ -1,16 +1,33 @@
 import { inject } from '@angular/core';
-import { HttpInterceptorFn } from '@angular/common/http';
+import { HttpErrorResponse, HttpInterceptorFn } from '@angular/common/http';
+import { Router } from '@angular/router';
+import { catchError, throwError } from 'rxjs';
 import { AuthService } from '../services/auth.service';
 
-/** Adds the bearer token to protected API requests. */
+/** Adds API credentials and clears the session when the API rejects them. */
 export const authInterceptor: HttpInterceptorFn = (request, next) => {
-  const token = inject(AuthService).token();
+  const auth = inject(AuthService);
+  const router = inject(Router);
+  const token = auth.token();
+  const path = request.url.split(/[?#]/)[0];
+  const isProtectedApi = path.startsWith('/api/')
+    && path !== '/api/auth/login'
+    && path !== '/api/auth/register'
+    && path !== '/api/health';
 
   return next(
-    token
+    token && isProtectedApi
       ? request.clone({
           setHeaders: { Authorization: `Bearer ${token}` },
         })
       : request,
-  );
+  ).pipe(catchError((error: unknown) => {
+    // Ignore late failures belonging to a session that has already changed.
+    if (error instanceof HttpErrorResponse && error.status === 401
+      && isProtectedApi && auth.token() === token) {
+      auth.logout();
+      void router.navigateByUrl('/login', { replaceUrl: true });
+    }
+    return throwError(() => error);
+  }));
 };
