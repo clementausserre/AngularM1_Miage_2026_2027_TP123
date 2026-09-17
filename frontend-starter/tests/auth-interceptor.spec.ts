@@ -10,7 +10,11 @@ import { AuthService } from '../src/app/shared/services/auth.service';
 function setup(url: string, initialToken: string | null = 'expired-token') {
   const token = signal(initialToken);
   const auth = { token, logout: vi.fn(() => token.set(null)) };
-  const router = { navigateByUrl: vi.fn().mockResolvedValue(true) };
+  const router = {
+    url: '/profile',
+    currentNavigation: vi.fn<() => { finalUrl: { toString(): string } } | null>(() => null),
+    navigate: vi.fn().mockResolvedValue(true),
+  };
   const injector = Injector.create({ providers: [
     { provide: AuthService, useValue: auth },
     { provide: Router, useValue: router },
@@ -29,7 +33,9 @@ it('clears the expired session, redirects and propagates the 401', () => {
   const error = new HttpErrorResponse({ status: 401 });
   response.error(error);
   expect(auth.logout).toHaveBeenCalledOnce();
-  expect(router.navigateByUrl).toHaveBeenCalledWith('/login', { replaceUrl: true });
+  expect(router.navigate).toHaveBeenCalledWith(['/login'], {
+    queryParams: { returnUrl: '/profile', reason: 'expired' }, replaceUrl: true,
+  });
   expect(onError).toHaveBeenCalledWith(error);
 });
 
@@ -37,7 +43,9 @@ it('redirects on protected API 401 responses even without a token', () => {
   const { auth, router, response } = setup('/api/tracks', null);
   response.error(new HttpErrorResponse({ status: 401 }));
   expect(auth.logout).toHaveBeenCalledOnce();
-  expect(router.navigateByUrl).toHaveBeenCalledOnce();
+  expect(router.navigate).toHaveBeenCalledWith(['/login'], {
+    queryParams: { returnUrl: '/profile' }, replaceUrl: true,
+  });
 });
 
 it.each(['/api/auth/login', '/api/auth/register', 'https://example.com/data'])
@@ -46,7 +54,7 @@ it.each(['/api/auth/login', '/api/auth/register', 'https://example.com/data'])
   expect(next.mock.calls[0]?.[0].headers.has('Authorization')).toBe(false);
   response.error(new HttpErrorResponse({ status: 401 }));
   expect(auth.logout).not.toHaveBeenCalled();
-  expect(router.navigateByUrl).not.toHaveBeenCalled();
+  expect(router.navigate).not.toHaveBeenCalled();
   expect(onError).toHaveBeenCalledOnce();
 });
 
@@ -54,7 +62,7 @@ it.each([0, 400, 403, 500])('preserves the session for HTTP %s', (status) => {
   const { auth, router, response } = setup('/api/tracks');
   response.error(new HttpErrorResponse({ status }));
   expect(auth.logout).not.toHaveBeenCalled();
-  expect(router.navigateByUrl).not.toHaveBeenCalled();
+  expect(router.navigate).not.toHaveBeenCalled();
 });
 
 it('does not clear a newer session because of an older request', () => {
@@ -62,5 +70,14 @@ it('does not clear a newer session because of an older request', () => {
   auth.token.set('new-token');
   response.error(new HttpErrorResponse({ status: 401 }));
   expect(auth.logout).not.toHaveBeenCalled();
-  expect(router.navigateByUrl).not.toHaveBeenCalled();
+  expect(router.navigate).not.toHaveBeenCalled();
+});
+
+it('preserves the target page when a 401 occurs during navigation', () => {
+  const { router, response } = setup('/api/tracks');
+  router.currentNavigation.mockReturnValue({ finalUrl: { toString: () => '/tracks?sort=recent' } });
+  response.error(new HttpErrorResponse({ status: 401 }));
+  expect(router.navigate).toHaveBeenCalledWith(['/login'], {
+    queryParams: { returnUrl: '/tracks?sort=recent', reason: 'expired' }, replaceUrl: true,
+  });
 });

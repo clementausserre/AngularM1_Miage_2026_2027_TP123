@@ -1,7 +1,7 @@
 import '@angular/compiler';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Injector, runInInjectionContext } from '@angular/core';
-import { Router } from '@angular/router';
+import { ActivatedRoute, convertToParamMap, Router } from '@angular/router';
 import { Subject } from 'rxjs';
 import { describe, expect, it, vi } from 'vitest';
 import { LoginPageComponent } from '../src/app/components/login-page/login-page';
@@ -11,13 +11,14 @@ import { authErrorMessage } from '../src/app/shared/utils/auth-error-message';
 
 for (const Component of [LoginPageComponent, RegisterPageComponent]) {
   describe(Component.name, () => {
-    function setup() {
+    function setup(query: Record<string, string> = {}) {
       const response = new Subject<unknown>();
       const request = vi.fn(() => response);
       const router = { navigateByUrl: vi.fn().mockResolvedValue(true) };
       const injector = Injector.create({ providers: [
         { provide: AuthService, useValue: { login: request, register: request } },
         { provide: Router, useValue: router },
+        { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: convertToParamMap(query) } } },
       ] });
       const component = runInInjectionContext(injector, () => new Component());
       return { component, response, request, router };
@@ -57,8 +58,32 @@ for (const Component of [LoginPageComponent, RegisterPageComponent]) {
       component.submit();
       response.next({});
       response.complete();
-      expect(router.navigateByUrl).toHaveBeenCalledWith(component instanceof RegisterPageComponent ? '/profile' : '/tracks');
+      expect(router.navigateByUrl).toHaveBeenCalledWith(component instanceof RegisterPageComponent ? '/profile' : '/tracks', { replaceUrl: true });
       expect(component.pending()).toBe(false);
+    });
+
+    it('returns to the requested page after authentication and masks the password during submission', () => {
+      const { component, response, router } = setup({ returnUrl: '/profile?tab=details#name', reason: 'expired' });
+      component.form.patchValue({ email: 'test@example.com', password: 'long-enough' });
+      if (component instanceof RegisterPageComponent) component.form.controls.name.setValue('Test');
+      if (component instanceof LoginPageComponent) expect(component.sessionExpired).toBe(true);
+      component.passwordVisible.set(true);
+      component.submit();
+      expect(component.passwordVisible()).toBe(false);
+      response.next({});
+      response.complete();
+      expect(router.navigateByUrl).toHaveBeenCalledWith('/profile?tab=details#name', { replaceUrl: true });
+    });
+
+    it('focuses the first invalid field without sending a request', () => {
+      const { component, request } = setup();
+      const focus = vi.fn();
+      const querySelector = vi.fn(() => ({ focus }));
+      component.submit({ querySelector } as unknown as HTMLFormElement);
+      const field = component instanceof RegisterPageComponent ? 'name' : 'email';
+      expect(querySelector).toHaveBeenCalledWith(`[formControlName="${field}"]`);
+      expect(focus).toHaveBeenCalledOnce();
+      expect(request).not.toHaveBeenCalled();
     });
 
     if (Component === RegisterPageComponent) {

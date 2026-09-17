@@ -7,3 +7,8 @@ input:focus-visible { outline: 2px solid #1d755e; outline-offset: 2px; }
 small { color: #465e56; }
 button { margin-top: 0.8rem; }
 button:disabled { cursor: wait; }
+.password-field { display: flex; align-items: stretch; gap: 0.5rem; }
+.password-field input { flex: 1; }
+.password-toggle { flex-shrink: 0; margin: 0; padding: 0.5rem 0.7rem; background: white; color: #1d755e; border: 1px solid #1d755e; }
+button:focus-visible, a:focus-visible { outline: 2px solid #1d755e; outline-offset: 3px; }
+.session-notice { padding: 0.8rem; background: #edf5f0; border-left: 3px solid #1d755e; border-radius: 4px; }

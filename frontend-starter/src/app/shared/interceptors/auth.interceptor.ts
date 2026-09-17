@@ -3,6 +3,7 @@ import { HttpErrorResponse, HttpInterceptorFn } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { catchError, throwError } from 'rxjs';
 import { AuthService } from '../services/auth.service';
+import { authReturnUrl } from '../utils/auth-return-url';
 
 /** Adds API credentials and clears the session when the API rejects them. */
 export const authInterceptor: HttpInterceptorFn = (request, next) => {
@@ -25,8 +26,12 @@ export const authInterceptor: HttpInterceptorFn = (request, next) => {
     // Ignore late failures belonging to a session that has already changed.
     if (error instanceof HttpErrorResponse && error.status === 401
       && isProtectedApi && auth.token() === token) {
+      const returnUrl = authReturnUrl(router.currentNavigation()?.finalUrl?.toString() ?? router.url);
       auth.logout();
-      void router.navigateByUrl('/login', { replaceUrl: true });
+      void router.navigate(['/login'], {
+        queryParams: { returnUrl, ...(token ? { reason: 'expired' } : {}) },
+        replaceUrl: true,
+      });
     }
     return throwError(() => error);
   }));

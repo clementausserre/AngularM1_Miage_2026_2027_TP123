@@ -30,7 +30,7 @@ function setup(token: string | null) {
   ] });
   const auth = injector.get(AuthService);
   const guard = (fn: typeof guestGuard) => runInInjectionContext(injector,
-    () => fn({} as ActivatedRouteSnapshot, {} as RouterStateSnapshot));
+    () => fn({} as ActivatedRouteSnapshot, { url: '/profile' } as RouterStateSnapshot));
   return { storage, router, injector, auth, guard };
 }
 
@@ -48,9 +48,10 @@ it('redirects an authenticated visitor even when only a persisted token is avail
 });
 
 it('lets guests access authentication pages and rejects protected routes', () => {
-  const { guard } = setup(null);
+  const { guard, router } = setup(null);
   expect(guard(guestGuard)).toBe(true);
   expect(guard(authGuard)).toBe('/login');
+  expect(router.createUrlTree).toHaveBeenCalledWith(['/login'], { queryParams: { returnUrl: '/profile' } });
 });
 
 it('clears authentication on logout, redirects and blocks subsequent protected navigation', () => {
