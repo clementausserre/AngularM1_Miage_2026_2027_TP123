@@ -11,6 +11,7 @@ Le contrat HTTP ne dépend pas du choix de persistance : le backend fourni utili
 | POST | `/auth/login` | `{email,password}` | `200 {token,user}` |
 | GET | `/users/me` | JWT | `200 User` |
 | PUT | `/users/me` | `{name}` + JWT | `200 User` |
+| PUT | `/users/me/password` | `{currentPassword, newPassword}` | `204` |
 | GET | `/tracks?page=1&limit=5` | JWT | `Page<Track>` |
 | POST | `/tracks` | multipart : `audio`, `title` | `201 Track` |
 | GET | `/tracks/:id/audio` | JWT | flux audio |

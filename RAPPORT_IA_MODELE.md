@@ -220,3 +220,27 @@ Preuves automatisées : compilation Angular réussie ; 59 tests frontend réussi
 À vérifier par le binôme : changer le mot de passe d’un compte de test, constater le message après redirection, se reconnecter avec le nouveau mot de passe et vérifier qu’un autre navigateur reçoit un 401 avec l’ancienne session. Ajouter les captures sans afficher les mots de passe, le corps de la requête ni les tokens. Aucun contrôle visuel dans le navigateur n’a été effectué par l’assistant.
 
 À expliquer personnellement : différence entre hachage et chiffrement, nécessité du mot de passe actuel, limite bcrypt de 72 octets, mise à jour conditionnelle et révocation des sessions. Apprentissages individuels et captures : à compléter.
+
+## TP2 — Upload, lecture et présentation de la bibliothèque (18 septembre 2026)
+
+Demande : réaliser les trois premières étapes du plan (upload, lecture, présentation) et reporter le choix du format de pagination.
+
+L’assistant a conservé le service HTTP et le contrat backend. Le composant bibliothèque valide la présence du fichier, sa taille (25 Mo maximum), son extension et son type MIME, affiche la sélection et les erreurs, bloque les doubles envois et confirme le succès. Le champ fichier natif et le titre sont vidés après réussite, puis la première page est rechargée. Une erreur serveur conserve la sélection. Les types MIME non reconnus sont refusés avec un message explicite, conformément aux types acceptés par le serveur.
+
+La lecture conserve le flux HttpClient → Blob → ObjectURL → lecteur. Le dernier choix annule le téléchargement précédent ; les erreurs HTTP et celles du lecteur sont affichées. L’ancienne URL est révoquée lors du remplacement et la dernière à la destruction du composant. Les abonnements HTTP sont arrêtés au départ de la page.
+
+La bibliothèque affiche désormais des cartes avec titre, nom original, format, taille convertie en Ko/Mo, date et action de lecture. Un lecteur commun indique le morceau sélectionné. La disposition s’adapte aux petits écrans, avec labels, focus visible et messages accessibles. La pagination reste basée sur les boutons Précédent/Suivant ; aucun Paginator Material ni plugin Mongoose n’a été ajouté.
+
+Fichiers : `frontend-starter/src/app/components/tracks-page/tracks-page.ts`, `.html`, `.css` et `frontend-starter/tests/tracks-page.spec.ts`.
+
+Tests ajoutés : refus des fichiers invalides, doubles envois, réinitialisation après succès, conservation après erreur, respect du dernier choix audio, révocation des ObjectURL et formatage des tailles. Les appels HTTP sont simulés ; le rendu visuel et la lecture réelle restent à vérifier dans le navigateur.
+
+Preuves à compléter par le binôme : capture multipart contenant audio/title (sans token), carte après import, lecteur avec le titre choisi, message pour fichier invalide, contrôle mobile et lecture avec deux comptes pour vérifier la propriété. La validation frontend améliore le retour utilisateur mais ne remplace pas les contrôles backend. Le téléchargement Blob finit avant que le lecteur reçoive son URL : il ne s’agit pas d’une lecture progressive pendant la requête HttpClient.
+
+Résultats des vérifications de l’assistant pour cette étape : compilation Angular réussie (npm run build) et 67 tests réussis dans 7 fichiers (npx vitest run tests), dont 8 tests de la bibliothèque. Aucun test dans un navigateur connecté au backend n’a été effectué.
+
+### TP2 — Harmonisation du header
+
+Demande : espacer le nom Guitar Practice Cloud et sa phrase d’accroche, et donner le même design aux liens et au bouton Déconnexion. Modifications dans `components/app/app.html` et `app.css` : accroche sous le nom avec un espacement explicite, styles communs des contrôles (dimensions, bordures, couleurs et survol), page active distinguée, focus clavier visible et adaptation mobile. Compilation `npm run build` réussie. Vérification visuelle et capture à compléter par le binôme ; aucun test supplémentaire ajouté pour cette modification de présentation.
+
+Ajustement du header demandé ensuite : phrase d’accroche à côté du nom avec espacement (retour à la ligne si nécessaire sur petit écran), et bouton Déconnexion distingué par un fond rouge sombre et une bordure rosée. Fichiers : `app.html` et `app.css`. Compilation Angular réussie ; rendu à vérifier dans le navigateur.

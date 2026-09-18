@@ -1,50 +1,93 @@
-<section>
-  <div class="hero">
+﻿<section aria-labelledby="library-title">
+  <div class="page-heading">
     <p class="eyebrow">MA BIBLIOTHÈQUE</p>
-    <h1>Backing tracks</h1>
-    <p>Importez, retrouvez et écoutez vos morceaux de travail.</p>
+    <h1 id="library-title">Mes morceaux</h1>
+    <p class="intro">Importez vos accompagnements et retrouvez le plaisir de jouer.</p>
   </div>
-
-  <div class="grid">
-    <article class="card">
-      <h2>Importer</h2>
-      <label>Titre<input [formControl]="title" /></label>
-      <label>Fichier audio<input type="file" accept="audio/*" (change)="choose($event)" /></label>
-      <button type="button" (click)="upload()" [disabled]="!file">Envoyer</button>
-    </article>
-
-    <article class="card">
-      <div class="row">
-        <h2>Mes pistes</h2>
-        <button type="button" (click)="load()" [disabled]="loading()">Actualiser</button>
-      </div>
-      @if (loading()) {
-        <p>Chargement…</p>
-      }
-      @else if (error()) {
-        <p class="error" role="alert">{{ error() }}</p>
-        <button type="button" (click)="load()">Réessayer</button>
-      } @else {
-      @for (track of tracks(); track track.id) {
-        <div class="track">
-          <div>
-            <b>{{ track.title }}</b>
-            <small>{{ track.originalName }} · {{ track.size }} Ko</small>
-          </div>
-          <button type="button" (click)="play(track)" [attr.aria-label]="'Lire ' + track.title">▶</button>
+  <div class="library-layout">
+    <aside class="card import-panel" aria-labelledby="import-title">
+      <h2 id="import-title">Importer un morceau</h2>
+      <p class="description">Ajoutez un fichier audio à votre bibliothèque personnelle.</p>
+      <form (submit)="$event.preventDefault(); upload(fileInput)" [attr.aria-busy]="uploading()">
+        <label for="track-title">Titre <span class="optional">(facultatif)</span></label>
+        <input id="track-title" [formControl]="title" placeholder="Ex. Blues en La" />
+        <small>Sans titre, le nom du fichier sera utilisé.</small>
+        <label for="track-file">Fichier audio</label>
+        <input #fileInput id="track-file" type="file" accept=".mp3,.wav,.ogg,.m4a,audio/mpeg,audio/wav,audio/x-wav,audio/ogg,audio/mp4,audio/x-m4a"
+          (change)="choose($event)" [disabled]="uploading()" aria-describedby="file-help upload-error" />
+        <small id="file-help">MP3, WAV, OGG ou M4A · 25 Mo maximum</small>
+        @if (file(); as selected) {
+          <p class="file-summary">{{ selected.name }} <span>{{ formatSize(selected.size) }}</span></p>
+        }
+        <div id="upload-error" aria-live="polite">
+          @if (uploadError()) { <p class="feedback error">{{ uploadError() }}</p> }
         </div>
-      } @empty {
-        <p>Aucune piste.</p>
-      }
-      <div class="pager">
-        <button type="button" (click)="go(page() - 1)" [disabled]="page() === 1">Préc.</button>
-        <span>Page {{ page() }} / {{ pages() }}</span>
-        <button type="button" (click)="go(page() + 1)" [disabled]="page() === pages()">Suiv.</button>
-      </div>
-      }
-      @if (audioUrl()) {
-        <audio [src]="audioUrl()" controls autoplay></audio>
-      }
-    </article>
+        <div role="status">
+          @if (uploading()) { <p>Envoi du fichier en cours…</p> }
+          @if (uploadSuccess()) { <p class="feedback success">{{ uploadSuccess() }}</p> }
+        </div>
+        <button type="submit" [disabled]="uploading() || !file()">{{ uploading() ? 'Importation…' : 'Importer le morceau' }}</button>
+        <button class="secondary" type="button" (click)="clearUpload(fileInput)" [disabled]="uploading() || (!file() && !title.value)">Effacer</button>
+      </form>
+    </aside>
+
+    <div class="library-content">
+      <section class="card player-panel" aria-labelledby="player-title">
+        <p class="eyebrow">LECTEUR</p>
+        @if (selectedTrack(); as current) {
+          <h2 id="player-title">{{ current.title }}</h2>
+          <p class="description">{{ current.originalName }}</p>
+          @if (audioLoading()) { <p role="status">Téléchargement du morceau…</p> }
+          @if (audioError()) {
+            <p class="feedback error" role="alert">{{ audioError() }}</p>
+            <button class="secondary" type="button" (click)="play(current)">Réessayer la lecture</button>
+          }
+          @if (audioUrl(); as url) {
+            <audio [src]="url" controls autoplay [attr.aria-label]="'Lecteur : ' + current.title" (error)="playbackError()"></audio>
+            <small>Si la lecture ne démarre pas automatiquement, appuyez sur Lecture.</small>
+          }
+        } @else {
+          <h2 id="player-title">À vous de jouer</h2>
+          <p class="description">Choisissez un morceau ci-dessous pour l’écouter.</p>
+        }
+      </section>
+      <section aria-labelledby="tracks-title" [attr.aria-busy]="loading()">
+        <div class="list-heading">
+          <h2 id="tracks-title">Vos accompagnements</h2>
+          <button class="secondary" type="button" (click)="load()" [disabled]="loading()">Actualiser</button>
+        </div>
+        @if (loading()) {
+          <p class="card state" role="status">Chargement de la bibliothèque…</p>
+        } @else if (error()) {
+          <div class="card state">
+            <p class="error" role="alert">{{ error() }}</p>
+            <button type="button" (click)="load()">Réessayer</button>
+          </div>
+        } @else {
+          <div class="track-grid">
+            @for (track of tracks(); track track.id) {
+              <article class="card track-card" [class.selected]="selectedTrack()?.id === track.id">
+                <div class="track-top"><span class="format">{{ format(track) }}</span>
+                  @if (selectedTrack()?.id === track.id) { <span class="selected-label">Dans le lecteur</span> }
+                </div>
+                <h3>{{ track.title }}</h3>
+                <p class="filename">{{ track.originalName }}</p>
+                <dl><div><dt>Taille</dt><dd>{{ formatSize(track.size) }}</dd></div>
+                  <div><dt>Ajouté le</dt><dd>{{ formatDate(track.createdAt) }}</dd></div></dl>
+                <button type="button" (click)="play(track)" [disabled]="audioLoading() && selectedTrack()?.id === track.id"
+                  [attr.aria-label]="'Lire ' + track.title">{{ audioLoading() && selectedTrack()?.id === track.id ? 'Chargement…' : 'Lire le morceau' }}</button>
+              </article>
+            } @empty {
+              <div class="card empty"><h3>Votre bibliothèque vous attend</h3><p>Importez votre premier morceau pour commencer à jouer.</p></div>
+            }
+          </div>
+          <nav class="pager" aria-label="Pagination de la bibliothèque">
+            <button class="secondary" type="button" (click)="go(page() - 1)" [disabled]="page() <= 1">Précédent</button>
+            <span>Page {{ page() }} / {{ pages() }}</span>
+            <button class="secondary" type="button" (click)="go(page() + 1)" [disabled]="page() >= pages()">Suivant</button>
+          </nav>
+        }
+      </section>
+    </div>
   </div>
 </section>

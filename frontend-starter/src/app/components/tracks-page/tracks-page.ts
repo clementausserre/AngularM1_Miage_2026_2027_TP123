@@ -1,6 +1,8 @@
-import { HttpErrorResponse } from '@angular/common/http';
-import { Component, inject, signal } from '@angular/core';
+﻿import { HttpErrorResponse } from '@angular/common/http';
+import { Component, DestroyRef, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
+import { finalize, Subscription } from 'rxjs';
 import { Track } from '../../shared/models/track.model';
 import { TrackService } from '../../shared/services/track.service';
 
@@ -11,74 +13,161 @@ import { TrackService } from '../../shared/services/track.service';
 })
 export class TracksPageComponent {
   private readonly service = inject(TrackService);
-
+  private readonly destroyRef = inject(DestroyRef);
+  private listRequest?: Subscription;
+  private audioRequest?: Subscription;
   readonly tracks = signal<Track[]>([]);
   readonly page = signal(1);
   readonly pages = signal(1);
   readonly loading = signal(false);
   readonly error = signal('');
   readonly audioUrl = signal('');
+  readonly selectedTrack = signal<Track | null>(null);
+  readonly audioLoading = signal(false);
+  readonly audioError = signal('');
+  readonly uploading = signal(false);
+  readonly uploadError = signal('');
+  readonly uploadSuccess = signal('');
+  readonly file = signal<File | null>(null);
   readonly title = new FormControl('', { nonNullable: true });
-  file?: File;
 
   constructor() {
+    this.destroyRef.onDestroy(() => this.releaseAudio());
     this.load();
   }
 
+  private fileError(file: File): string {
+    if (!file.size) return 'Ce fichier est vide. Choisissez un fichier audio contenant du son.';
+    if (file.size > 25 * 1024 * 1024) return 'Le fichier dépasse la limite de 25 Mo.';
+    const allowed = ['audio/mpeg', 'audio/wav', 'audio/x-wav', 'audio/ogg', 'audio/mp4', 'audio/x-m4a'];
+    if (!/\.(mp3|wav|ogg|m4a)$/i.test(file.name) || !allowed.includes(file.type)) {
+      return 'Format non pris en charge ou non reconnu. Choisissez un fichier MP3, WAV, OGG ou M4A.';
+    }
+    return '';
+  }
+
   choose(event: Event): void {
-    this.file = (event.target as HTMLInputElement).files?.[0];
-    console.debug('[TracksPage] Fichier sélectionné', this.file?.name);
+    if (this.uploading()) return;
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0] ?? null;
+    this.uploadSuccess.set('');
+    this.uploadError.set(file ? this.fileError(file) : '');
+    this.file.set(file && !this.uploadError() ? file : null);
+    if (this.uploadError()) input.value = '';
+  }
+
+  clearUpload(input: HTMLInputElement): void {
+    if (this.uploading()) return;
+    this.file.set(null);
+    this.title.reset();
+    input.value = '';
+    this.uploadError.set('');
+    this.uploadSuccess.set('');
   }
 
   load(): void {
+    this.listRequest?.unsubscribe();
     this.error.set('');
     this.loading.set(true);
-    this.service.list(this.page()).subscribe({
-      next: (response) => {
-        console.debug('[TracksPage] Pistes chargées', response.items.length);
+    this.listRequest = this.service.list(this.page()).pipe(
+      takeUntilDestroyed(this.destroyRef), finalize(() => this.loading.set(false)),
+    ).subscribe({
+      next: response => {
         this.tracks.set(response.items);
         this.pages.set(response.pages);
-        this.loading.set(false);
+        console.debug('[TracksPage] Pistes chargées', response.items.length);
       },
       error: (error: HttpErrorResponse) => {
-        console.error('[TracksPage] Chargement impossible', error);
-        this.error.set(error.status === 0
-          ? 'Impossible de joindre le serveur. Vérifiez votre connexion puis réessayez.'
-          : 'Impossible de charger les pistes. Veuillez réessayer.');
-        this.loading.set(false);
+        console.error('[TracksPage] Chargement HTTP', error.status);
+        this.error.set('Impossible de charger les pistes. Vérifiez votre connexion puis réessayez.');
       },
     });
   }
 
   go(page: number): void {
+    if (this.loading() || page < 1 || page > this.pages()) return;
     this.page.set(page);
     this.load();
   }
 
-  upload(): void {
-    if (!this.file) return;
-
-    this.service.upload(this.file, this.title.value || this.file.name).subscribe({
-      next: (track) => {
-        console.debug('[TracksPage] Piste envoyée', track.id);
-        this.title.setValue('');
-        this.file = undefined;
+  upload(input: HTMLInputElement): void {
+    if (this.uploading()) return;
+    const file = this.file();
+    this.uploadSuccess.set('');
+    this.uploadError.set(file ? this.fileError(file) : 'Choisissez un fichier audio.');
+    if (!file || this.uploadError()) return;
+    this.uploading.set(true);
+    this.title.disable();
+    this.service.upload(file, this.title.value.trim() || file.name).pipe(
+      takeUntilDestroyed(this.destroyRef),
+      finalize(() => { this.uploading.set(false); this.title.enable(); }),
+    ).subscribe({
+      next: track => {
+        console.debug('[TracksPage] Import réussi', track.id);
+        this.title.reset();
+        this.file.set(null);
+        input.value = '';
+        this.uploadSuccess.set('Votre morceau a été importé.');
         this.page.set(1);
         this.load();
       },
-      error: (error) => console.error('[TracksPage] Envoi impossible', error),
+      error: (error: HttpErrorResponse) => {
+        console.error('[TracksPage] Import HTTP', error.status);
+        this.uploadError.set(error.status === 400 || error.status === 413
+          ? 'Import refusé. Vérifiez le format MP3, WAV, OGG ou M4A et la limite de 25 Mo.'
+          : error.status === 0 ? 'Serveur inaccessible. Votre sélection est conservée pour réessayer.'
+          : 'L’import a échoué. Votre sélection est conservée pour réessayer.');
+      },
     });
   }
 
+  private releaseAudio(): void {
+    const url = this.audioUrl();
+    this.audioUrl.set('');
+    if (url) URL.revokeObjectURL(url);
+  }
+
   play(track: Track): void {
-    this.service.audio(track.id).subscribe({
-      next: (blob) => {
-        console.debug('[TracksPage] Audio chargé', track.id);
-        const previousUrl = this.audioUrl();
-        if (previousUrl) URL.revokeObjectURL(previousUrl);
+    this.audioRequest?.unsubscribe();
+    this.releaseAudio();
+    this.selectedTrack.set(track);
+    this.audioError.set('');
+    this.audioLoading.set(true);
+    this.audioRequest = this.service.audio(track.id).pipe(
+      takeUntilDestroyed(this.destroyRef), finalize(() => this.audioLoading.set(false)),
+    ).subscribe({
+      next: blob => {
+        if (!blob.size) {
+          this.audioError.set('Le fichier audio reçu est vide.');
+          return;
+        }
         this.audioUrl.set(URL.createObjectURL(blob));
+        console.debug('[TracksPage] Audio chargé', track.id);
       },
-      error: (error) => console.error('[TracksPage] Lecture impossible', error),
+      error: (error: HttpErrorResponse) => {
+        console.error('[TracksPage] Audio HTTP', error.status);
+        this.audioError.set(error.status === 404
+          ? 'Ce fichier audio est introuvable ou vous n’y avez pas accès.'
+          : 'Impossible de télécharger ce morceau. Vérifiez votre connexion et réessayez.');
+      },
     });
+  }
+
+  playbackError(): void {
+    this.audioError.set('Le navigateur ne peut pas lire ce fichier. Il est peut-être endommagé ou son encodage n’est pas pris en charge.');
+  }
+
+  formatSize(bytes: number): string {
+    return bytes < 1024 * 1024
+      ? `${(bytes / 1024).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} Ko`
+      : `${(bytes / (1024 * 1024)).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} Mo`;
+  }
+
+  formatDate(value: string): string {
+    return new Date(value).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
+  }
+
+  format(track: Track): string {
+    return track.originalName.split('.').pop()?.toUpperCase() ?? 'AUDIO';
   }
 }
