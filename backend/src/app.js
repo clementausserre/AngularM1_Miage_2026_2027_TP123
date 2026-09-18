@@ -8,6 +8,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 import { User } from "./models/User.js";
 import { Track } from "./models/Track.js";
+import { validatePasswordChange } from './middleware/validate-password-change.js';
 
 // Les fichiers audio restent sur le disque du serveur dans ce TP.
 // MongoDB ne conserve que leurs métadonnées : titre, nom, taille, etc.
@@ -47,13 +48,13 @@ const allowed = new Set([
  */
 function token(user) {
   console.log(`[auth] Création d'un token pour l'utilisateur ${user.id}`);
-  return jwt.sign({ sub: user.id, email: user.email }, SECRET, {
+  return jwt.sign({ sub: user.id, email: user.email, sessionVersion: user.sessionVersion ?? 0 }, SECRET, {
     expiresIn: "2h",
   });
 }
 
 /** Middleware Express qui protège les routes privées. */
-function auth(req, res, next) {
+async function auth(req, res, next) {
   const raw = req.headers.authorization;
 
   // Le token est transmis dans l'en-tête Authorization sous la forme
@@ -69,10 +70,19 @@ function auth(req, res, next) {
     // On ne logue jamais sa valeur, car un JWT permettrait une usurpation.
     req.auth = jwt.verify(raw.slice(7), SECRET);
     console.log(`[auth] Token accepté pour ${req.auth.sub}`);
-    next();
   } catch (error) {
     console.error("[auth] Token invalide ou expiré", error);
     return res.status(401).json({ message: "Jeton invalide ou expiré" });
+  }
+  try {
+    const user = await User.findById(req.auth.sub).select('+sessionVersion');
+    if (!user || (req.auth.sessionVersion ?? 0) !== (user.sessionVersion ?? 0)) {
+      return res.status(401).json({ message: 'Session révoquée. Veuillez vous reconnecter.' });
+    }
+    next();
+  } catch {
+    console.error('[auth] Vérification de session indisponible');
+    return res.status(503).json({ message: 'Service temporairement indisponible' });
   }
 }
 
@@ -204,7 +214,7 @@ export function createApp() {
       // on envoie les requête à MongoDB via cet objet. Le mot de passe haché est stocké dans 
       // passwordHash, mais il n'est pas renvoyé par défaut dans les requêtes pour 
       // des raisons de sécurité.
-      const user = await User.findOne({ email }).select("+passwordHash");
+      const user = await User.findOne({ email }).select("+passwordHash +sessionVersion");
 
       if (!user || !(await user.verifyPassword(req.body?.password || ""))) {
         console.warn(`[auth] Identifiants incorrects pour ${email}`);
@@ -264,6 +274,29 @@ export function createApp() {
     } catch (error) {
       console.error("[user] Erreur de mise à jour du profil", error);
       next(error);
+    }
+  });
+
+  app.put('/api/users/me/password', auth, validatePasswordChange, async (req, res) => {
+    const { currentPassword, newPassword } = req.body ?? {};
+    try {
+      const user = await User.findById(req.auth.sub).select('+passwordHash');
+      if (!user) return res.status(401).json({ message: 'Session invalide' });
+      if (!(await user.verifyPassword(currentPassword))) {
+        return res.status(403).json({ message: 'Mot de passe actuel incorrect' });
+      }
+      if (await user.verifyPassword(newPassword)) {
+        return res.status(400).json({ message: 'Le nouveau mot de passe doit être différent.' });
+      }
+      const result = await user.replacePassword(newPassword);
+      if (result.modifiedCount !== 1) {
+        return res.status(409).json({ message: 'Le mot de passe a déjà changé. Reconnectez-vous.' });
+      }
+      console.info('[user] Mot de passe modifié et anciennes sessions révoquées');
+      return res.sendStatus(204);
+    } catch {
+      console.error('[user] Échec du changement de mot de passe');
+      return res.status(500).json({ message: 'Impossible de modifier le mot de passe' });
     }
   });
 
@@ -440,7 +473,11 @@ export function createApp() {
 
   /** Gestionnaire central des erreurs connues de l'application. */
   app.use((error, _req, res, next) => {
-    console.error("[error] Erreur reçue par le gestionnaire central", error);
+    // Parser errors may contain the entire request body, including passwords.
+    console.error('[error] Échec HTTP', { name: error?.name, status: error?.status ?? 500 });
+    if (error?.type === 'entity.parse.failed') {
+      return res.status(400).json({ message: 'Corps JSON invalide' });
+    }
 
     if (
       error instanceof multer.MulterError ||

@@ -17,6 +17,7 @@ const schema = new mongoose.Schema(
     },
     // select:false empêche de renvoyer le hash par défaut dans les requêtes.
     passwordHash: { type: String, required: true, select: false },
+    sessionVersion: { type: Number, default: 0, select: false },
   },
   { timestamps: true },
 );
@@ -46,6 +47,16 @@ schema.pre("validate", async function () {
 schema.methods.verifyPassword = function (value) {
   console.debug(`[user-model] Vérification du mot de passe pour ${this.email}`);
   return bcrypt.compare(value, this.passwordHash);
+};
+
+// Compare-and-swap prevents two concurrent password changes from overwriting one another.
+schema.methods.replacePassword = async function (value) {
+  const passwordHash = await bcrypt.hash(value, 10);
+  return this.constructor.updateOne(
+    { _id: this._id, passwordHash: this.passwordHash },
+    { $set: { passwordHash }, $inc: { sessionVersion: 1 } },
+    { runValidators: true },
+  );
 };
 
 /** Retourne uniquement les champs qu'une réponse HTTP peut exposer. */

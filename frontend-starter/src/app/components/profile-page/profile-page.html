@@ -1,14 +1,62 @@
-<section class="card">
-  <h1>Mon profil</h1>
-  <button type="button" (click)="load()">Charger mon profil</button>
-  @if (auth.currentUser(); as user) {
-    <p>
-      <b>{{ user.name }}</b><br />{{ user.email }}<br />
-      Membre depuis {{ user.createdAt.slice(0, 10) }}
-    </p>
-    <form [formGroup]="form" (ngSubmit)="save()">
-      <label>Nouveau nom<input formControlName="name" /></label>
-      <button type="submit">Enregistrer</button>
-    </form>
-  }
+﻿<section aria-labelledby="profile-title">
+  <div class="page-heading">
+    <p class="eyebrow">MON COMPTE</p>
+    <h1 id="profile-title">Mon profil</h1>
+    <p class="intro">Consultez les informations de votre compte et personnalisez votre nom.</p>
+  </div>
+
+  <article class="card profile-card" [attr.aria-busy]="loading()">
+    @if (loading()) {
+      <div class="state-panel" role="status">
+        <span class="loading-indicator" aria-hidden="true"></span>
+        <p>Chargement de votre profil…</p>
+      </div>
+    } @else if (loadError()) {
+      <div class="state-panel">
+        <p class="error" role="alert">{{ loadError() }}</p>
+        <button type="button" (click)="load()">Réessayer</button>
+      </div>
+    } @else if (user(); as profile) {
+      <div class="identity">
+        <span class="avatar" aria-hidden="true">{{ initials() }}</span>
+        <div class="identity-details">
+          <h2>{{ profile.name }}</h2>
+          <p class="email">{{ profile.email }}</p>
+          <p class="member-since">Membre depuis {{ memberSince() }}</p>
+        </div>
+      </div>
+
+      <div class="profile-editor">
+        <h2>Informations personnelles</h2>
+        <p class="description">Votre nom est modifiable. Votre adresse email reste celle utilisée pour vous connecter.</p>
+        <form [formGroup]="form" (ngSubmit)="save()" (input)="clearFeedback()" [attr.aria-busy]="saving()" novalidate>
+          <label for="profile-name">Nom affiché</label>
+          <input id="profile-name" formControlName="name" autocomplete="name" required
+            aria-describedby="profile-name-hint profile-name-error"
+            [attr.aria-invalid]="form.controls.name.invalid && form.controls.name.touched" />
+          <small id="profile-name-hint">Au moins 2 caractères, sans compter les espaces au début et à la fin.</small>
+          <div id="profile-name-error" aria-live="polite">
+            @if (form.controls.name.invalid && form.controls.name.touched) {
+              <p class="error">Saisissez un nom d’au moins 2 caractères.</p>
+            }
+          </div>
+          @if (saveError()) {
+            <p class="feedback error-feedback" role="alert">{{ saveError() }}</p>
+          }
+          <div aria-live="polite" aria-atomic="true">
+            @if (success()) {
+              <p class="feedback success-feedback">{{ success() }}</p>
+            }
+          </div>
+          <div class="form-actions">
+            <button class="secondary-button" type="button" (click)="cancel()" [disabled]="saving() || !hasEdits()">Annuler</button>
+            <button type="submit" [disabled]="saving() || form.invalid || !hasChanges()">
+              {{ saving() ? 'Enregistrement…' : 'Enregistrer les changements' }}
+            </button>
+          </div>
+        </form>
+      </div>
+      <app-password-form />
+    }
+  </article>
 </section>

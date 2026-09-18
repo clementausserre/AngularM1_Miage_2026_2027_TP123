@@ -36,7 +36,7 @@ Les changements apportés avec l’IA sont :
 - navigation conditionnelle et bouton de déconnexion utilisant la méthode existante ;
 - traitement des réponses 401 des requêtes API protégées : effacement de la session et redirection vers `/login`. Une erreur d’identifiants sur la connexion reste affichée dans le formulaire.
 
-Le profil n’a pas été amélioré au cours de ces échanges : cette entrée ne prouve pas à elle seule que toute la mission 1 est terminée.
+Le profil n’avait pas été amélioré lors de cette première étape. Il a ensuite fait l’objet du complément ci-dessous. Les vérifications manuelles de la mission restent à réaliser par le binôme.
 
 ### Fichiers concernés
 
@@ -113,6 +113,31 @@ Vérifications de l’assistant : compilation Angular réussie ; 40 tests automa
 
 À vérifier par le binôme et à illustrer avec des captures : affichage/masquage du mot de passe avec une valeur fictive, apparition de l’erreur après sortie du champ, correction de cette erreur, message après expiration et retour à la page initialement demandée. Aucune capture n’a été créée par l’assistant.
 
+### Complément — Refonte de la page Profil
+
+Demande : analyser la présentation et les interactions du profil avec le backend, puis mettre en œuvre la proposition validée (« ça me parait vraiment bien, faisons cela »).
+
+L’assistant a constaté que le chargement était manuel, que le formulaire pouvait rester vide après connexion, et que les erreurs et confirmations étaient seulement écrites dans la console. La proposition retenue sépare un résumé du compte (initiales, nom, email, date en français) d’un formulaire de modification du nom.
+
+Changements réalisés :
+
+- chargement automatique via `GET /api/users/me`, avec état d’attente et bouton Réessayer en cas d’erreur ;
+- nom prérempli et validation d’au moins deux caractères après suppression des espaces aux extrémités, conforme au modèle backend ;
+- bouton de sauvegarde désactivé pour une valeur invalide, inchangée ou pendant une sauvegarde ;
+- sauvegarde via `PUT /api/users/me` avec le nom nettoyé et prise en compte de la réponse du serveur ;
+- bouton Annuler restaurant le dernier nom chargé ou enregistré, sans requête HTTP ;
+- messages visibles de réussite et d’échec, avec conservation de la saisie en cas d’échec ;
+- affichage adapté aux petits écrans, labels, messages accessibles et focus visible ;
+- arrêt des abonnements HTTP lorsque le composant est détruit.
+
+Fichiers modifiés : `frontend-starter/src/app/components/profile-page/profile-page.ts`, `.html`, `.css`. Fichier de tests ajouté : `frontend-starter/tests/profile-page.spec.ts`. Les routes et le code du backend restent inchangés.
+
+Vérifications exécutées par l’assistant : `npm run build` réussi ; `npx vitest run tests` réussi avec **52 tests dans 5 fichiers**, dont 12 tests du profil. Ces tests utilisent un service simulé et couvrent le chargement automatique, les tentatives après erreur, les noms invalides ou inchangés, les doubles soumissions, la normalisation, la confirmation, l’annulation et la destruction du composant.
+
+Vérifications à effectuer par le binôme : ouvrir `/profile` après actualisation, modifier et annuler le nom, enregistrer puis recharger pour vérifier la persistance, simuler une erreur réseau, vérifier les requêtes GET/PUT dans Network et contrôler le rendu sur mobile. Ajouter les captures correspondantes dans `preuves/` et les lier ici, sans exposer le token. Aucun contrôle visuel dans le navigateur ni capture n’a été réalisé par l’assistant.
+
+Apprentissages individuels à compléter : expliquer la différence entre le nom saisi et le nom enregistré, le rôle de `currentUser`, les états `loading`/`saving`, et pourquoi la validation doit correspondre aux règles du backend.
+
 ## Mission 2 — Bibliothèque paginée
 
 ### Objectif et demandes adressées à l’IA
@@ -179,3 +204,19 @@ Créer par exemple un dossier `preuves/`, y déposer les véritables captures, p
 ```
 
 Pour chaque capture, préciser le scénario, le résultat attendu et le résultat observé. Ne pas présenter les exemples de noms de fichiers comme des captures déjà présentes. Masquer les mots de passe, tokens et autres secrets avant d’ajouter les images au projet.
+
+## Bonus — Modifier son mot de passe (18 septembre 2026)
+
+Demande : « Fais le, le prof a dit qu'on pouvait inové et je veux faire ça ». Cette autorisation explicite permet une extension du backend pour ce bonus.
+
+L’assistant a ajouté une section Sécurité indépendante dans le profil : mot de passe actuel, nouveau, confirmation, affichage/masquage, validation progressive, effacement du formulaire et blocage des doubles soumissions. Un mauvais mot de passe actuel affiche une erreur sans déconnecter l’utilisateur. Après succès, le formulaire est vidé, la session locale nettoyée et un message sur la connexion invite à se reconnecter.
+
+Côté backend : nouvelle route `PUT /api/users/me/password`, middleware de validation, comparaison bcrypt, hachage du nouveau mot de passe et mise à jour conditionnelle sur l’ancien hash. La méthode spécifique `replacePassword` évite de dépendre du hook de création du compte. Une version de session incrémentée en base invalide les anciens JWT lors des prochaines requêtes protégées. Tous les backends du binôme doivent utiliser cette version du code. Les comptes existants sont compatibles sans migration manuelle.
+
+Fichiers concernés : `backend/src/app.js`, `backend/src/models/User.js`, `backend/src/middleware/validate-password-change.js`, `backend/test/password.test.js`, `frontend-starter/src/app/components/password-form/`, composants profil et connexion, `AuthService`, `frontend-starter/tests/password-form.spec.ts` et `API_CONTRACT.md`.
+
+Preuves automatisées : compilation Angular réussie ; 59 tests frontend réussis. Les tests backend vérifient les réponses HTTP réelles d’un serveur temporaire, le hachage bcrypt réel, le rejet de l’ancien mot de passe et des anciens tokens, les données invalides et les conflits ; la persistance MongoDB est simulée, aucun compte Atlas n’a été modifié. Une première exécution a révélé une erreur dans le substitut de requête Mongoose du test ; l’assistant a corrigé ce substitut pour prendre en charge l’attente directe et `.select()`.
+
+À vérifier par le binôme : changer le mot de passe d’un compte de test, constater le message après redirection, se reconnecter avec le nouveau mot de passe et vérifier qu’un autre navigateur reçoit un 401 avec l’ancienne session. Ajouter les captures sans afficher les mots de passe, le corps de la requête ni les tokens. Aucun contrôle visuel dans le navigateur n’a été effectué par l’assistant.
+
+À expliquer personnellement : différence entre hachage et chiffrement, nécessité du mot de passe actuel, limite bcrypt de 72 octets, mise à jour conditionnelle et révocation des sessions. Apprentissages individuels et captures : à compléter.

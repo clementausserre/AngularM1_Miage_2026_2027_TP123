@@ -42,6 +42,10 @@ export class AuthService {
     this.currentUser.set(null);
   }
 
+  changePassword(currentPassword: string, newPassword: string) {
+    return this.http.put<void>('/api/users/me/password', { currentPassword, newPassword });
+  }
+
   private storeAuthentication(response: AuthResponse): void {
     localStorage.setItem('gpc_token', response.token);
     this.token.set(response.token);

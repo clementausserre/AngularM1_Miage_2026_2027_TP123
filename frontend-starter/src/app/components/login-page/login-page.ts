@@ -19,6 +19,7 @@ export class LoginPageComponent {
   readonly requestedReturnUrl = authReturnUrl(this.route.snapshot.queryParamMap.get('returnUrl'), '');
   readonly returnUrl = this.requestedReturnUrl || '/tracks';
   readonly sessionExpired = this.route.snapshot.queryParamMap.get('reason') === 'expired';
+  readonly passwordChanged = this.route.snapshot.queryParamMap.get('reason') === 'password-changed';
   readonly passwordVisible = signal(false);
   readonly error = signal('');
   readonly pending = signal(false);

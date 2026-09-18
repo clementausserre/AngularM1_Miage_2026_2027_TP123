@@ -1,5 +1,8 @@
 <section class="card">
   <h1>Connexion</h1>
+  @if (passwordChanged) {
+    <p class="session-notice" role="status">Votre mot de passe a été modifié. Reconnectez-vous avec votre nouveau mot de passe.</p>
+  }
   @if (sessionExpired) {
     <p class="session-notice" role="status">Votre session a expiré ou n’est plus valide. Veuillez vous reconnecter pour continuer.</p>
   }
