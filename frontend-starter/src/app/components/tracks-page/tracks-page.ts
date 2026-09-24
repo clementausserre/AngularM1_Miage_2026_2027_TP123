@@ -2,7 +2,7 @@
 import { Component, DestroyRef, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
-import { finalize, Subscription } from 'rxjs';
+import { finalize, Subscription, timer } from 'rxjs';
 import { Track } from '../../shared/models/track.model';
 import { TrackService } from '../../shared/services/track.service';
 
@@ -16,6 +16,7 @@ export class TracksPageComponent {
   private readonly destroyRef = inject(DestroyRef);
   private listRequest?: Subscription;
   private audioRequest?: Subscription;
+  private deleteSuccessTimer?: Subscription;
   readonly tracks = signal<Track[]>([]);
   readonly page = signal(1);
   readonly pages = signal(1);
@@ -28,6 +29,10 @@ export class TracksPageComponent {
   readonly uploading = signal(false);
   readonly uploadError = signal('');
   readonly uploadSuccess = signal('');
+  readonly deleteTarget = signal<Track | null>(null);
+  readonly deleting = signal(false);
+  readonly deleteError = signal('');
+  readonly deleteSuccess = signal('');
   readonly file = signal<File | null>(null);
   readonly title = new FormControl('', { nonNullable: true });
 
@@ -84,6 +89,16 @@ export class TracksPageComponent {
     });
   }
 
+  refresh(): void {
+    this.clearDeleteSuccess();
+    this.load();
+  }
+
+  private clearDeleteSuccess(): void {
+    this.deleteSuccessTimer?.unsubscribe();
+    this.deleteSuccess.set('');
+  }
+
   go(page: number): void {
     if (this.loading() || page < 1 || page > this.pages()) return;
     this.page.set(page);
@@ -125,6 +140,57 @@ export class TracksPageComponent {
     const url = this.audioUrl();
     this.audioUrl.set('');
     if (url) URL.revokeObjectURL(url);
+  }
+
+  requestDelete(track: Track, dialog: HTMLDialogElement): void {
+    if (this.deleting()) return;
+    this.deleteTarget.set(track);
+    this.deleteError.set('');
+    this.clearDeleteSuccess();
+    dialog.showModal();
+  }
+
+  cancelDelete(dialog: HTMLDialogElement): void {
+    if (this.deleting()) return;
+    dialog.close();
+    this.deleteTarget.set(null);
+  }
+
+  confirmDelete(dialog: HTMLDialogElement, focusTarget: HTMLElement): void {
+    const track = this.deleteTarget();
+    if (!track || this.deleting()) return;
+    this.deleting.set(true);
+    this.deleteError.set('');
+    this.service.delete(track.id).pipe(
+      takeUntilDestroyed(this.destroyRef), finalize(() => this.deleting.set(false)),
+    ).subscribe({
+      next: () => {
+        console.debug('[TracksPage] Piste supprimée', track.id);
+        if (this.selectedTrack()?.id === track.id) {
+          this.audioRequest?.unsubscribe();
+          this.releaseAudio();
+          this.selectedTrack.set(null);
+          this.audioError.set('');
+        }
+        this.clearDeleteSuccess();
+        this.deleteSuccess.set(`« ${track.title} » a été supprimé.`);
+        this.deleteSuccessTimer = timer(4000).pipe(
+          takeUntilDestroyed(this.destroyRef),
+        ).subscribe(() => this.deleteSuccess.set(''));
+        this.deleteTarget.set(null);
+        dialog.close();
+        focusTarget.focus();
+        if (this.tracks().length === 1 && this.page() > 1) this.page.update(page => page - 1);
+        this.load();
+      },
+      error: (error: HttpErrorResponse) => {
+        console.error('[TracksPage] Suppression HTTP', error.status);
+        this.deleteError.set(error.status === 404
+          ? 'Ce morceau est introuvable ou vous n’y avez pas accès. Fermez cette fenêtre et actualisez la liste.'
+          : error.status === 0 ? 'Serveur inaccessible. Vérifiez votre connexion puis réessayez.'
+          : 'La suppression n’a pas pu être confirmée. Actualisez la liste avant de réessayer.');
+      },
+    });
   }
 
   play(track: Track): void {

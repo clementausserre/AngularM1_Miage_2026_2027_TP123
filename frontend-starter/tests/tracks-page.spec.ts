@@ -12,10 +12,12 @@ const cleanups: Array<() => void> = [];
 afterEach(() => { cleanups.splice(0).forEach(fn => fn()); vi.restoreAllMocks(); });
 function setup() {
   const upload = new Subject<Track>();
+  const deletion = new Subject<void>();
   const audios: Subject<Blob>[] = [];
   const service = {
     list: vi.fn(() => of({ items: [track], page: 1, pages: 2, total: 6, limit: 5 })),
     upload: vi.fn(() => upload),
+    delete: vi.fn(() => deletion),
     audio: vi.fn(() => { const response = new Subject<Blob>(); audios.push(response); return response; }),
   };
   const injector = Injector.create({ providers: [{ provide: TrackService, useValue: service }] });
@@ -23,7 +25,7 @@ function setup() {
   cleanups.push(() => injector.destroy());
   const input = { value: 'file', files: [new File(['audio'], 'blues.mp3', { type: 'audio/mpeg' })] };
   const choose = () => component.choose({ target: input } as unknown as Event);
-  return { component, service, upload, audios, input, choose, injector };
+  return { component, service, upload, deletion, audios, input, choose, injector };
 }
 it.each([
   new File([], 'empty.mp3', { type: 'audio/mpeg' }),
@@ -91,4 +93,61 @@ it('formats bytes into readable units', () => {
   const { component } = setup();
   expect(component.formatSize(2048)).toBe('2 Ko');
   expect(component.formatSize(1048576)).toBe('1 Mo');
+});
+
+function deletionDialog() {
+  return { showModal: vi.fn(), close: vi.fn() } as unknown as HTMLDialogElement;
+}
+
+it('requires confirmation and allows cancelling without deleting', () => {
+  const { component, service } = setup();
+  const dialog = deletionDialog();
+  component.requestDelete(track, dialog);
+  expect(dialog.showModal).toHaveBeenCalledOnce();
+  expect(service.delete).not.toHaveBeenCalled();
+  component.cancelDelete(dialog);
+  component.confirmDelete(dialog, { focus: vi.fn() } as unknown as HTMLElement);
+  expect(service.delete).not.toHaveBeenCalled();
+  expect(component.deleteTarget()).toBeNull();
+});
+
+it('deletes once, clears the selected audio and returns from an emptied page', () => {
+  vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:deleted');
+  const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+  const { component, service, deletion, audios } = setup();
+  const dialog = deletionDialog();
+  const focusTarget = { focus: vi.fn() } as unknown as HTMLElement;
+  component.page.set(2);
+  component.play(track);
+  audios[0].next(new Blob(['audio'])); audios[0].complete();
+  component.requestDelete(track, dialog);
+  component.confirmDelete(dialog, focusTarget);
+  component.confirmDelete(dialog, focusTarget);
+  component.cancelDelete(dialog);
+  expect(dialog.close).not.toHaveBeenCalled();
+  expect(service.delete).toHaveBeenCalledExactlyOnceWith(track.id);
+  deletion.next(); deletion.complete();
+  expect(revoke).toHaveBeenCalledWith('blob:deleted');
+  expect(component.selectedTrack()).toBeNull();
+  expect(component.audioUrl()).toBe('');
+  expect(component.page()).toBe(1);
+  expect(service.list).toHaveBeenLastCalledWith(1);
+  expect(dialog.close).toHaveBeenCalledOnce();
+  expect(focusTarget.focus).toHaveBeenCalledOnce();
+  expect(component.deleting()).toBe(false);
+  expect(component.deleteSuccess()).toContain(track.title);
+});
+
+it('keeps the card and confirmation open after a failed deletion', () => {
+  const { component, service, deletion } = setup();
+  const dialog = deletionDialog();
+  component.requestDelete(track, dialog);
+  component.confirmDelete(dialog, { focus: vi.fn() } as unknown as HTMLElement);
+  deletion.error(new HttpErrorResponse({ status: 0 }));
+  expect(component.deleteError()).toContain('Serveur inaccessible');
+  expect(component.deleting()).toBe(false);
+  expect(component.tracks()).toEqual([track]);
+  expect(component.deleteTarget()).toEqual(track);
+  expect(dialog.close).not.toHaveBeenCalled();
+  expect(service.list).toHaveBeenCalledOnce();
 });

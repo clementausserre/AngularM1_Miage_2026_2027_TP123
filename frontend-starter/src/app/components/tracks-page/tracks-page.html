@@ -53,8 +53,11 @@
       </section>
       <section aria-labelledby="tracks-title" [attr.aria-busy]="loading()">
         <div class="list-heading">
-          <h2 id="tracks-title">Vos accompagnements</h2>
-          <button class="secondary" type="button" (click)="load()" [disabled]="loading()">Actualiser</button>
+          <h2 #tracksHeading id="tracks-title" tabindex="-1">Vos accompagnements</h2>
+          <button class="secondary" type="button" (click)="refresh()" [disabled]="loading()">Actualiser</button>
+        </div>
+        <div role="status">
+          @if (deleteSuccess()) { <p class="feedback success">{{ deleteSuccess() }}</p> }
         </div>
         @if (loading()) {
           <p class="card state" role="status">Chargement de la bibliothèque…</p>
@@ -69,6 +72,12 @@
               <article class="card track-card" [class.selected]="selectedTrack()?.id === track.id">
                 <div class="track-top"><span class="format">{{ format(track) }}</span>
                   @if (selectedTrack()?.id === track.id) { <span class="selected-label">Dans le lecteur</span> }
+                  <button class="delete-button" type="button" (click)="requestDelete(track, deleteDialog)"
+                    [disabled]="deleting()" [attr.aria-label]="'Supprimer ' + track.title" title="Supprimer le morceau">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                      <path d="M3 6h18M9 6V4h6v2M5 6l1 14h12l1-14M10 10v6M14 10v6" />
+                    </svg>
+                  </button>
                 </div>
                 <h3>{{ track.title }}</h3>
                 <p class="filename">{{ track.originalName }}</p>
@@ -90,4 +99,15 @@
       </section>
     </div>
   </div>
+  <dialog #deleteDialog class="delete-dialog" aria-labelledby="delete-title" aria-describedby="delete-description"
+    [attr.aria-busy]="deleting()" (cancel)="$event.preventDefault(); cancelDelete(deleteDialog)">
+    <h2 id="delete-title">Supprimer ce morceau ?</h2>
+    <p id="delete-description">« {{ deleteTarget()?.title }} » sera définitivement supprimé de votre bibliothèque.</p>
+    @if (deleteError()) { <p class="feedback error" role="alert">{{ deleteError() }}</p> }
+    <p class="delete-progress" role="status">{{ deleting() ? 'Suppression en cours…' : '' }}</p>
+    <div class="dialog-actions">
+      <button class="secondary" type="button" autofocus [disabled]="deleting()" (click)="cancelDelete(deleteDialog)">Annuler</button>
+      <button class="confirm-delete" type="button" [disabled]="deleting()" (click)="confirmDelete(deleteDialog, tracksHeading)">Supprimer</button>
+    </div>
+  </dialog>
 </section>

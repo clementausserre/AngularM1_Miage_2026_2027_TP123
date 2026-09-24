@@ -41,7 +41,17 @@ h3 { margin: 0.9rem 0 0.25rem; font-size: 1.1rem; overflow-wrap: anywhere; }
 dl { display: grid; gap: 0.4rem; margin: 1rem 0; font-size: 0.85rem; }
 dl div { display: flex; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap; }
 dt { color: #52685f; } dd { margin: 0; }
-.track-card button { margin-top: auto; }
+.track-card > button { margin-top: auto; }
+.delete-button { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 44px; padding: 0; margin-left: auto; color: #a13434; background: #a134340d; border: 1px solid #a1343426; }
+.delete-button:hover:not(:disabled) { background: #a134341c; border-color: #a1343459; }
+.delete-button:focus-visible, .confirm-delete:focus-visible { outline-color: #a13434; }
+.delete-dialog { width: min(420px, calc(100% - 2rem)); max-height: calc(100% - 2rem); padding: 1.5rem; border: 1px solid #e1ebe7; border-radius: 16px; color: #17312a; box-shadow: 0 20px 70px #17312a33; }
+.delete-dialog::backdrop { background: #10261e66; }
+.delete-dialog p { line-height: 1.6; overflow-wrap: anywhere; }
+.delete-progress:empty { display: none; }
+.dialog-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 0.75rem; margin-top: 1.5rem; }
+.confirm-delete { background: #a13434; }
+.confirm-delete:hover:not(:disabled) { background: #852929; }
 .empty { grid-column: 1 / -1; text-align: center; padding: 2rem; }
 .empty p { line-height: 1.6; color: #52685f; }
 .state { padding: 1.5rem; }
