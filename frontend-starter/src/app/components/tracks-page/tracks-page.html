@@ -23,9 +23,17 @@
           @if (uploadError()) { <p class="feedback error">{{ uploadError() }}</p> }
         </div>
         <div role="status">
-          @if (uploading()) { <p>Envoi du fichier en cours…</p> }
+          @if (uploading()) {
+            <p>{{ uploadProgress() === 100 ? 'Finalisation…' : 'Envoi du fichier en cours…' }}</p>
+          }
           @if (uploadSuccess()) { <p class="feedback success">{{ uploadSuccess() }}</p> }
         </div>
+        @if (uploading()) {
+          <div class="upload-progress">
+            <progress max="100" [attr.value]="uploadProgress()" aria-label="Progression de l’envoi du fichier"></progress>
+            @if (uploadProgress() !== null) { <span aria-hidden="true">{{ uploadProgress() }} %</span> }
+          </div>
+        }
         <button type="submit" [disabled]="uploading() || !file()">{{ uploading() ? 'Importation…' : 'Importer le morceau' }}</button>
         <button class="secondary" type="button" (click)="clearUpload(fileInput)" [disabled]="uploading() || (!file() && !title.value)">Effacer</button>
       </form>

@@ -1,5 +1,6 @@
 ﻿import { HttpErrorResponse } from '@angular/common/http';
 import { Component, DestroyRef, inject, signal } from '@angular/core';
+import { HttpEventType } from '@angular/common/http';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { finalize, Subscription, timer } from 'rxjs';
@@ -27,6 +28,7 @@ export class TracksPageComponent {
   readonly audioLoading = signal(false);
   readonly audioError = signal('');
   readonly uploading = signal(false);
+  readonly uploadProgress = signal<number | null>(null);
   readonly uploadError = signal('');
   readonly uploadSuccess = signal('');
   readonly deleteTarget = signal<Track | null>(null);
@@ -112,13 +114,20 @@ export class TracksPageComponent {
     this.uploadError.set(file ? this.fileError(file) : 'Choisissez un fichier audio.');
     if (!file || this.uploadError()) return;
     this.uploading.set(true);
+    this.uploadProgress.set(null);
     this.title.disable();
     this.service.upload(file, this.title.value.trim() || file.name).pipe(
       takeUntilDestroyed(this.destroyRef),
-      finalize(() => { this.uploading.set(false); this.title.enable(); }),
+      finalize(() => { this.uploading.set(false); this.uploadProgress.set(null); this.title.enable(); }),
     ).subscribe({
-      next: track => {
-        console.debug('[TracksPage] Import réussi', track.id);
+      next: event => {
+        if (event.type === HttpEventType.UploadProgress) {
+          this.uploadProgress.set(event.total && event.total > 0
+            ? Math.min(100, Math.floor(100 * event.loaded / event.total)) : null);
+          return;
+        }
+        if (event.type !== HttpEventType.Response) return;
+        console.debug('[TracksPage] Import réussi', event.body?.id);
         this.title.reset();
         this.file.set(null);
         input.value = '';

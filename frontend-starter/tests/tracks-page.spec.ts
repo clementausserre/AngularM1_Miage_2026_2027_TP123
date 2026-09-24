@@ -1,5 +1,5 @@
 ﻿import '@angular/compiler';
-import { HttpErrorResponse } from '@angular/common/http';
+import { HttpErrorResponse, HttpEvent, HttpEventType, HttpResponse } from '@angular/common/http';
 import { Injector, runInInjectionContext } from '@angular/core';
 import { of, Subject } from 'rxjs';
 import { afterEach, expect, it, vi } from 'vitest';
@@ -11,7 +11,7 @@ const track: Track = { id: '1', title: 'Blues', originalName: 'blues.mp3', mimeT
 const cleanups: Array<() => void> = [];
 afterEach(() => { cleanups.splice(0).forEach(fn => fn()); vi.restoreAllMocks(); });
 function setup() {
-  const upload = new Subject<Track>();
+  const upload = new Subject<HttpEvent<Track>>();
   const deletion = new Subject<void>();
   const audios: Subject<Blob>[] = [];
   const service = {
@@ -47,7 +47,7 @@ it('uploads once, clears the native input and title and reloads page one', () =>
   expect(service.upload).toHaveBeenCalledTimes(1);
   expect(service.upload.mock.calls[0]?.[1]).toBe('My blues');
   expect(component.uploading()).toBe(true);
-  upload.next(track); upload.complete();
+  upload.next(new HttpResponse({ body: track, status: 201 })); upload.complete();
   expect(input.value).toBe('');
   expect(component.title.value).toBe('');
   expect(component.file()).toBeNull();
@@ -63,6 +63,41 @@ it('keeps selection after a server failure', () => {
   expect(component.uploadError()).toContain('Import refusé');
   expect(component.file()).not.toBeNull();
   expect(component.title.enabled).toBe(true);
+});
+
+it('reports upload progress but waits for the server response before confirming success', () => {
+  const { component, upload, input, choose, service } = setup();
+  choose(); component.upload(input as unknown as HTMLInputElement);
+  upload.next({ type: HttpEventType.Sent });
+  expect(component.uploadProgress()).toBeNull();
+  upload.next({ type: HttpEventType.UploadProgress, loaded: 6, total: 10 });
+  expect(component.uploadProgress()).toBe(60);
+  upload.next({ type: HttpEventType.UploadProgress, loaded: 10, total: 10 });
+  expect(component.uploadProgress()).toBe(100);
+  expect(component.uploading()).toBe(true);
+  expect(component.uploadSuccess()).toBe('');
+  expect(component.file()).not.toBeNull();
+  expect(service.list).toHaveBeenCalledOnce();
+  upload.next(new HttpResponse({ body: track, status: 201 })); upload.complete();
+  expect(component.uploadSuccess()).not.toBe('');
+  expect(component.uploading()).toBe(false);
+  expect(component.uploadProgress()).toBeNull();
+});
+
+it('handles unknown upload size and clears progress after an error and on retry', () => {
+  const { component, upload, input, choose, service } = setup();
+  choose(); component.upload(input as unknown as HTMLInputElement);
+  upload.next({ type: HttpEventType.UploadProgress, loaded: 6 });
+  expect(component.uploadProgress()).toBeNull();
+  upload.next({ type: HttpEventType.UploadProgress, loaded: 6, total: 10 });
+  upload.error(new HttpErrorResponse({ status: 0 }));
+  expect(component.uploadProgress()).toBeNull();
+  expect(component.uploading()).toBe(false);
+  expect(component.file()).not.toBeNull();
+  service.upload.mockReturnValue(new Subject<HttpEvent<Track>>());
+  component.upload(input as unknown as HTMLInputElement);
+  expect(component.uploadProgress()).toBeNull();
+  expect(component.uploading()).toBe(true);
 });
 it('honours the last audio selection and revokes replaced and final URLs', () => {
   const create = vi.spyOn(URL, 'createObjectURL').mockReturnValueOnce('blob:first').mockReturnValueOnce('blob:last');

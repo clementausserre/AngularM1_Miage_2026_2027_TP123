@@ -22,6 +22,9 @@ input::file-selector-button { border: 0; border-radius: 4px; padding: 0.5rem; ma
 .feedback { border-radius: 8px; padding: 0.8rem; line-height: 1.5; margin: 0.5rem 0; }
 .feedback.error { background: #fff1ef; border: 1px solid #e8bdb7; color: #962b27; }
 .success { color: #205b3b; background: #eaf5ee; border: 1px solid #bfdac9; }
+.upload-progress { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.6rem; }
+.upload-progress progress { flex: 1; min-width: 0; height: 12px; accent-color: #1d755e; }
+.upload-progress span { color: #245d4c; font-size: 0.85rem; font-variant-numeric: tabular-nums; }
 button { font: inherit; min-height: 44px; }
 button:disabled { cursor: not-allowed; }
 .secondary { background: white; color: #245d4c; border: 1px solid #a9c2b5; }
