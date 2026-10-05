@@ -64,9 +64,6 @@
           <h2 #tracksHeading id="tracks-title" tabindex="-1">Vos accompagnements</h2>
           <button class="secondary" type="button" (click)="refresh()" [disabled]="loading()">Actualiser</button>
         </div>
-        <div role="status">
-          @if (deleteSuccess()) { <p class="feedback success">{{ deleteSuccess() }}</p> }
-        </div>
         @if (loading()) {
           <p class="card state" role="status">Chargement de la bibliothèque…</p>
         } @else if (error()) {
@@ -111,7 +108,6 @@
     [attr.aria-busy]="deleting()" (cancel)="$event.preventDefault(); cancelDelete(deleteDialog)">
     <h2 id="delete-title">Supprimer ce morceau ?</h2>
     <p id="delete-description">« {{ deleteTarget()?.title }} » sera définitivement supprimé de votre bibliothèque.</p>
-    @if (deleteError()) { <p class="feedback error" role="alert">{{ deleteError() }}</p> }
     <p class="delete-progress" role="status">{{ deleting() ? 'Suppression en cours…' : '' }}</p>
     <div class="dialog-actions">
       <button class="secondary" type="button" autofocus [disabled]="deleting()" (click)="cancelDelete(deleteDialog)">Annuler</button>

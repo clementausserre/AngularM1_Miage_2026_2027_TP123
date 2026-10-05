@@ -3,7 +3,8 @@ import { Component, DestroyRef, inject, signal } from '@angular/core';
 import { HttpEventType } from '@angular/common/http';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
-import { finalize, Subscription, timer } from 'rxjs';
+import { MatSnackBar } from '@angular/material/snack-bar';
+import { finalize, Subscription } from 'rxjs';
 import { Track } from '../../shared/models/track.model';
 import { TrackService } from '../../shared/services/track.service';
 
@@ -15,9 +16,9 @@ import { TrackService } from '../../shared/services/track.service';
 export class TracksPageComponent {
   private readonly service = inject(TrackService);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly snackBar = inject(MatSnackBar);
   private listRequest?: Subscription;
   private audioRequest?: Subscription;
-  private deleteSuccessTimer?: Subscription;
   readonly tracks = signal<Track[]>([]);
   readonly page = signal(1);
   readonly pages = signal(1);
@@ -33,8 +34,6 @@ export class TracksPageComponent {
   readonly uploadSuccess = signal('');
   readonly deleteTarget = signal<Track | null>(null);
   readonly deleting = signal(false);
-  readonly deleteError = signal('');
-  readonly deleteSuccess = signal('');
   readonly file = signal<File | null>(null);
   readonly title = new FormControl('', { nonNullable: true });
 
@@ -92,13 +91,7 @@ export class TracksPageComponent {
   }
 
   refresh(): void {
-    this.clearDeleteSuccess();
     this.load();
-  }
-
-  private clearDeleteSuccess(): void {
-    this.deleteSuccessTimer?.unsubscribe();
-    this.deleteSuccess.set('');
   }
 
   go(page: number): void {
@@ -154,8 +147,7 @@ export class TracksPageComponent {
   requestDelete(track: Track, dialog: HTMLDialogElement): void {
     if (this.deleting()) return;
     this.deleteTarget.set(track);
-    this.deleteError.set('');
-    this.clearDeleteSuccess();
+    this.snackBar.dismiss();
     dialog.showModal();
   }
 
@@ -169,37 +161,48 @@ export class TracksPageComponent {
     const track = this.deleteTarget();
     if (!track || this.deleting()) return;
     this.deleting.set(true);
-    this.deleteError.set('');
+    this.snackBar.dismiss();
     this.service.delete(track.id).pipe(
       takeUntilDestroyed(this.destroyRef), finalize(() => this.deleting.set(false)),
     ).subscribe({
       next: () => {
         console.debug('[TracksPage] Piste supprimée', track.id);
-        if (this.selectedTrack()?.id === track.id) {
-          this.audioRequest?.unsubscribe();
-          this.releaseAudio();
-          this.selectedTrack.set(null);
-          this.audioError.set('');
-        }
-        this.clearDeleteSuccess();
-        this.deleteSuccess.set(`« ${track.title} » a été supprimé.`);
-        this.deleteSuccessTimer = timer(4000).pipe(
-          takeUntilDestroyed(this.destroyRef),
-        ).subscribe(() => this.deleteSuccess.set(''));
-        this.deleteTarget.set(null);
-        dialog.close();
-        focusTarget.focus();
-        if (this.tracks().length === 1 && this.page() > 1) this.page.update(page => page - 1);
-        this.load();
+        this.removeFromScreen(track, dialog, focusTarget);
+        this.notify(`« ${track.title} » a été supprimé.`);
       },
       error: (error: HttpErrorResponse) => {
         console.error('[TracksPage] Suppression HTTP', error.status);
-        this.deleteError.set(error.status === 404
-          ? 'Ce morceau est introuvable ou vous n’y avez pas accès. Fermez cette fenêtre et actualisez la liste.'
-          : error.status === 0 ? 'Serveur inaccessible. Vérifiez votre connexion puis réessayez.'
+        if (error.status === 404) {
+          // Piste déjà supprimée (autre onglet) ou appartenant à un autre utilisateur :
+          // le backend ne distingue pas les deux cas, la carte affichée est donc obsolète.
+          this.removeFromScreen(track, dialog, focusTarget);
+          this.notify('Ce morceau est introuvable ou vous n’y avez pas accès. La liste a été actualisée.');
+          return;
+        }
+        // Erreur réseau ou serveur : la confirmation reste ouverte pour pouvoir réessayer.
+        this.notify(error.status === 0
+          ? 'Serveur inaccessible. Vérifiez votre connexion puis réessayez.'
           : 'La suppression n’a pas pu être confirmée. Actualisez la liste avant de réessayer.');
       },
     });
+  }
+
+  private removeFromScreen(track: Track, dialog: HTMLDialogElement, focusTarget: HTMLElement): void {
+    if (this.selectedTrack()?.id === track.id) {
+      this.audioRequest?.unsubscribe();
+      this.releaseAudio();
+      this.selectedTrack.set(null);
+      this.audioError.set('');
+    }
+    this.deleteTarget.set(null);
+    dialog.close();
+    focusTarget.focus();
+    if (this.tracks().length === 1 && this.page() > 1) this.page.update(page => page - 1);
+    this.load();
+  }
+
+  private notify(message: string): void {
+    this.snackBar.open(message, 'Fermer', { duration: 5000 });
   }
 
   play(track: Track): void {

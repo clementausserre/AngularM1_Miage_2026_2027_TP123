@@ -1,6 +1,7 @@
 ﻿import '@angular/compiler';
 import { HttpErrorResponse, HttpEvent, HttpEventType, HttpResponse } from '@angular/common/http';
 import { Injector, runInInjectionContext } from '@angular/core';
+import { MatSnackBar } from '@angular/material/snack-bar';
 import { of, Subject } from 'rxjs';
 import { afterEach, expect, it, vi } from 'vitest';
 import { TracksPageComponent } from '../src/app/components/tracks-page/tracks-page';
@@ -20,12 +21,16 @@ function setup() {
     delete: vi.fn(() => deletion),
     audio: vi.fn(() => { const response = new Subject<Blob>(); audios.push(response); return response; }),
   };
-  const injector = Injector.create({ providers: [{ provide: TrackService, useValue: service }] });
+  const snackBar = { open: vi.fn(), dismiss: vi.fn() };
+  const injector = Injector.create({ providers: [
+    { provide: TrackService, useValue: service },
+    { provide: MatSnackBar, useValue: snackBar },
+  ] });
   const component = runInInjectionContext(injector, () => new TracksPageComponent());
   cleanups.push(() => injector.destroy());
   const input = { value: 'file', files: [new File(['audio'], 'blues.mp3', { type: 'audio/mpeg' })] };
   const choose = () => component.choose({ target: input } as unknown as Event);
-  return { component, service, upload, deletion, audios, input, choose, injector };
+  return { component, service, snackBar, upload, deletion, audios, input, choose, injector };
 }
 it.each([
   new File([], 'empty.mp3', { type: 'audio/mpeg' }),
@@ -149,7 +154,7 @@ it('requires confirmation and allows cancelling without deleting', () => {
 it('deletes once, clears the selected audio and returns from an emptied page', () => {
   vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:deleted');
   const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
-  const { component, service, deletion, audios } = setup();
+  const { component, service, snackBar, deletion, audios } = setup();
   const dialog = deletionDialog();
   const focusTarget = { focus: vi.fn() } as unknown as HTMLElement;
   component.page.set(2);
@@ -170,19 +175,36 @@ it('deletes once, clears the selected audio and returns from an emptied page', (
   expect(dialog.close).toHaveBeenCalledOnce();
   expect(focusTarget.focus).toHaveBeenCalledOnce();
   expect(component.deleting()).toBe(false);
-  expect(component.deleteSuccess()).toContain(track.title);
+  expect(snackBar.open).toHaveBeenCalledExactlyOnceWith(`« ${track.title} » a été supprimé.`, 'Fermer', { duration: 5000 });
 });
 
 it('keeps the card and confirmation open after a failed deletion', () => {
-  const { component, service, deletion } = setup();
+  const { component, service, snackBar, deletion } = setup();
   const dialog = deletionDialog();
   component.requestDelete(track, dialog);
   component.confirmDelete(dialog, { focus: vi.fn() } as unknown as HTMLElement);
   deletion.error(new HttpErrorResponse({ status: 0 }));
-  expect(component.deleteError()).toContain('Serveur inaccessible');
+  expect(snackBar.open).toHaveBeenCalledOnce();
+  expect(snackBar.open.mock.calls[0]?.[0]).toContain('Serveur inaccessible');
   expect(component.deleting()).toBe(false);
   expect(component.tracks()).toEqual([track]);
   expect(component.deleteTarget()).toEqual(track);
   expect(dialog.close).not.toHaveBeenCalled();
   expect(service.list).toHaveBeenCalledOnce();
+});
+
+it('closes the confirmation and reloads the list when the track no longer exists or belongs to someone else', () => {
+  const { component, service, snackBar, deletion } = setup();
+  const dialog = deletionDialog();
+  const focusTarget = { focus: vi.fn() } as unknown as HTMLElement;
+  component.requestDelete(track, dialog);
+  component.confirmDelete(dialog, focusTarget);
+  deletion.error(new HttpErrorResponse({ status: 404 }));
+  expect(snackBar.open).toHaveBeenCalledOnce();
+  expect(snackBar.open.mock.calls[0]?.[0]).toContain('introuvable');
+  expect(component.deleting()).toBe(false);
+  expect(component.deleteTarget()).toBeNull();
+  expect(dialog.close).toHaveBeenCalledOnce();
+  expect(focusTarget.focus).toHaveBeenCalledOnce();
+  expect(service.list).toHaveBeenCalledTimes(2);
 });
