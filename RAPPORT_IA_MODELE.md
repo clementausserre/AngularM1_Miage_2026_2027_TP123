@@ -246,3 +246,61 @@ Demande : espacer le nom Guitar Practice Cloud et sa phrase d’accroche, et don
 Ajustement du header demandé ensuite : phrase d’accroche à côté du nom avec espacement (retour à la ligne si nécessaire sur petit écran), et bouton Déconnexion distingué par un fond rouge sombre et une bordure rosée. Fichiers : `app.html` et `app.css`. Compilation Angular réussie ; rendu à vérifier dans le navigateur.
 
 Ajustement visuel TP2 : rétablissement d’une bannière compacte à dégradé vert derrière « MA BIBLIOTHÈQUE / Mes morceaux », avec texte clair et espacement réduit, dans `tracks-page.css`. Aucun changement fonctionnel ; rendu navigateur à vérifier par le binôme.
+
+## TP3 — Suppression, progression d’upload et tests (6 octobre 2026)
+
+Demande : vérifier que les missions 5, 6 et 7 sont terminées, puis compléter ce qui manque (environnement de test, tests HTTP, tests backend facultatifs, rapport des tests et présent rapport).
+
+**Mission 5 — Suppression** (commits `b7ffdcb` puis `32874bf`) :
+- chaque carte a un bouton Supprimer ;
+- un `<dialog>` natif demande confirmation ;
+- le signal `deleting` bloque les doubles clics et l’annulation pendant l’envoi ;
+- l’appel passe par `TrackService.delete()` et non par `HttpClient` ;
+- les messages s’affichent dans un `MatSnackBar` Angular Material (5 s, bouton Fermer) ;
+- après succès, la liste est rechargée, avec retour à la page précédente si la page devient vide, et l’audio de la piste supprimée est libéré ;
+- un 404 (piste déjà supprimée dans un autre onglet, ou appartenant à un autre utilisateur, deux cas que le backend ne distingue pas volontairement) ferme la confirmation et recharge la liste ;
+- une erreur réseau garde la confirmation ouverte pour réessayer.
+
+**Mission 6 — Progression de l’upload** (commit `77b32c6`) :
+- `observe: 'events'` et `reportProgress: true` ;
+- le composant distingue l’absence d’envoi, l’envoi avec pourcentage (`loaded / total`, ou indéterminé si `total` est inconnu), la finalisation à 100 %, la réussite (seulement à la réponse du serveur) et l’échec ;
+- le titre, le fichier et les boutons sont désactivés pendant l’envoi.
+
+**Mission 7 — Tests** (complétés lors de cette session) :
+- Le script `npm test` appelait `ng test`, qui échouait : configuration `build:development` absente de `angular.json`, et pas de DOM. Il lance désormais `vitest run tests`, la commande déjà utilisée dans les rapports précédents.
+- `jsdom` a été ajouté en dépendance de développement, uniquement pour le nouveau fichier qui utilise `TestBed`.
+- Nouveau `frontend-starter/tests/http-services.spec.ts`, avec `HttpTestingController` : `AuthService.login()` (POST, corps, stockage du token, cas 401), `TrackService.list()` (paramètres `page` et `limit`), `TrackService.delete()` (DELETE, URL, 204 et 404) et `TrackService.upload()` (FormData `audio` et `title`, événements `Sent` → `UploadProgress` → `Response`).
+- Nouveau `backend/test/security.test.js` (extension facultative), avec un serveur Express et des JWT réels et un Mongoose simulé :
+  - 401 sans JWT ou avec un JWT invalide ou falsifié ;
+  - upload sans fichier ;
+  - type MIME refusé ;
+  - pagination, avec `skip`, `limit` et le plafond à 20 ;
+  - piste d’un autre utilisateur : 404, filtre `ownerId` vérifié.
+
+Aucune route ni aucun code applicatif n’a été modifié pendant cette session, et `API_CONTRACT.md` est inchangé.
+
+Fichiers de cette session : `frontend-starter/package.json`, `package-lock.json`, `frontend-starter/tests/http-services.spec.ts`, `backend/test/security.test.js` et `TP3-Rendu/Rapport_Tests.md`.
+
+Résultats observés par l’assistant :
+- `npm test` frontend : 79 tests réussis dans 8 fichiers ;
+- `npm test` backend : 8 tests réussis ;
+- `npm run build` : réussi.
+
+Le détail, avec les résultats attendus et observés, est dans `TP3-Rendu/Rapport_Tests.md`.
+
+Correction en cours de route : une première version des tests HTTP créait un injecteur Angular à la main. Il manquait des services internes de `HttpClient` (`PendingTasks`), donc l’assistant est passé à `TestBed` avec `jsdom`. L’ordre réel des événements d’upload commence aussi par `HttpEventType.Sent`, et le test a été ajusté en conséquence.
+
+Limites :
+- aucun test dans un navigateur connecté au backend : MongoDB Atlas refusait la connexion, car l’IP n’était pas autorisée dans Network Access ;
+- captures Network (DELETE confirmé, upload avec progression) et contrôle de la console à faire par le binôme ;
+- les tests du composant simulent `TrackService` et `MatSnackBar` : le rendu réel du SnackBar et de la barre de progression reste à vérifier visuellement.
+
+À expliquer personnellement :
+- pourquoi le guard et l’interface ne protègent pas la suppression (le backend vérifie le JWT et filtre sur `ownerId`) ;
+- pourquoi un upload avec progression émet plusieurs événements au lieu d’une seule réponse ;
+- comment est calculé le pourcentage ;
+- pourquoi les tests HTTP n’ont pas besoin de MongoDB ;
+- ce que vérifie un test d’intercepteur ou de guard ;
+- la différence entre un test unitaire (composant avec service simulé) et un test d’intégration (serveur Express réel interrogé par `fetch`).
+
+Apprentissages individuels et captures : à compléter.
