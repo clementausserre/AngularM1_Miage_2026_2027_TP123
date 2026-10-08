@@ -304,3 +304,38 @@ Limites :
 - la différence entre un test unitaire (composant avec service simulé) et un test d’intégration (serveur Express réel interrogé par `fetch`).
 
 Apprentissages individuels et captures : à compléter.
+
+### TP3 — Synchronisation de la bibliothèque entre onglets (8 octobre 2026)
+
+**Demande.** Une piste ajoutée ou supprimée dans un onglet doit apparaître ou disparaître dans les autres onglets sans clic sur « Actualiser ». Ce point n’est pas exigé par le sujet : c’est une amélioration.
+
+**Démarche.** Nouveau service `shared/services/library-sync.service.ts` :
+- après un upload ou une suppression réussis, le composant appelle `notifyChanged()`, qui publie un message sans donnée sur le canal `BroadcastChannel` `gpc-library` ;
+- les autres onglets du même navigateur reçoivent ce message (l’émetteur, lui, ne le reçoit pas) ;
+- l’événement `visibilitychange` recharge aussi la liste quand on revient sur un onglet, ce qui couvre un ajout fait depuis un autre navigateur ou appareil ;
+- un onglet caché attend d’être de nouveau visible avant de recharger.
+
+**Rechargement dans le composant.** Il est *silencieux* : pas de « Chargement… », la liste actuelle reste visible et un échec la conserve sans message d’erreur. Si la page courante n’existe plus, le composant bascule sur la dernière page.
+
+Le backend, l’API et `API_CONTRACT.md` sont inchangés.
+
+**Fichiers :**
+- `frontend-starter/src/app/shared/services/library-sync.service.ts` (nouveau) ;
+- `frontend-starter/src/app/components/tracks-page/tracks-page.ts` ;
+- `frontend-starter/tests/library-sync.spec.ts` (nouveau) ;
+- `frontend-starter/tests/tracks-page.spec.ts` (6 tests ajoutés) ;
+- `TP3-Rendu/Rapport_Tests.md`.
+
+**Résultats observés par l’assistant :**
+- `npm test` : 90 tests réussis dans 9 fichiers ;
+- `npm run build` : réussi.
+
+**Limites :**
+- non vérifié dans un navigateur, faute de backend connecté à Atlas ;
+- la synchronisation immédiate ne fonctionne qu’entre onglets du même navigateur. Ailleurs, la mise à jour se fait au retour sur l’onglet.
+
+**À expliquer personnellement :**
+- le rôle de `BroadcastChannel` et pourquoi le message ne contient aucune donnée (chaque onglet relit l’API, qui reste la source de vérité et vérifie le JWT) ;
+- l’intérêt du rechargement silencieux ;
+- la différence avec une vraie synchronisation serveur (WebSocket ou Server-Sent Events).
+

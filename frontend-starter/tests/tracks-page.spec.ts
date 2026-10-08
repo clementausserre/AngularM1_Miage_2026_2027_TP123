@@ -2,9 +2,10 @@
 import { HttpErrorResponse, HttpEvent, HttpEventType, HttpResponse } from '@angular/common/http';
 import { Injector, runInInjectionContext } from '@angular/core';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { of, Subject } from 'rxjs';
+import { of, Subject, throwError } from 'rxjs';
 import { afterEach, expect, it, vi } from 'vitest';
 import { TracksPageComponent } from '../src/app/components/tracks-page/tracks-page';
+import { LibrarySyncService } from '../src/app/shared/services/library-sync.service';
 import { TrackService } from '../src/app/shared/services/track.service';
 import { Track } from '../src/app/shared/models/track.model';
 
@@ -22,15 +23,18 @@ function setup() {
     audio: vi.fn(() => { const response = new Subject<Blob>(); audios.push(response); return response; }),
   };
   const snackBar = { open: vi.fn(), dismiss: vi.fn() };
+  const changes = new Subject<void>();
+  const sync = { changes, notifyChanged: vi.fn() };
   const injector = Injector.create({ providers: [
     { provide: TrackService, useValue: service },
     { provide: MatSnackBar, useValue: snackBar },
+    { provide: LibrarySyncService, useValue: sync },
   ] });
   const component = runInInjectionContext(injector, () => new TracksPageComponent());
   cleanups.push(() => injector.destroy());
   const input = { value: 'file', files: [new File(['audio'], 'blues.mp3', { type: 'audio/mpeg' })] };
   const choose = () => component.choose({ target: input } as unknown as Event);
-  return { component, service, snackBar, upload, deletion, audios, input, choose, injector };
+  return { component, service, snackBar, sync, changes, upload, deletion, audios, input, choose, injector };
 }
 it.each([
   new File([], 'empty.mp3', { type: 'audio/mpeg' }),
@@ -207,4 +211,75 @@ it('closes the confirmation and reloads the list when the track no longer exists
   expect(dialog.close).toHaveBeenCalledOnce();
   expect(focusTarget.focus).toHaveBeenCalledOnce();
   expect(service.list).toHaveBeenCalledTimes(2);
+});
+
+it('tells the other tabs only after a successful upload or deletion', () => {
+  const { component, sync, upload, deletion, input, choose } = setup();
+  choose(); component.upload(input as unknown as HTMLInputElement);
+  upload.next({ type: HttpEventType.UploadProgress, loaded: 5, total: 10 });
+  expect(sync.notifyChanged).not.toHaveBeenCalled();
+  upload.next(new HttpResponse({ body: track, status: 201 })); upload.complete();
+  expect(sync.notifyChanged).toHaveBeenCalledOnce();
+
+  const dialog = deletionDialog();
+  component.requestDelete(track, dialog);
+  component.confirmDelete(dialog, { focus: vi.fn() } as unknown as HTMLElement);
+  deletion.next(); deletion.complete();
+  expect(sync.notifyChanged).toHaveBeenCalledTimes(2);
+});
+
+it('does not notify the other tabs after a failed upload or deletion', () => {
+  const { component, service, sync, upload, deletion, input, choose } = setup();
+  choose(); component.upload(input as unknown as HTMLInputElement);
+  upload.error(new HttpErrorResponse({ status: 500 }));
+  const dialog = deletionDialog();
+  component.requestDelete(track, dialog);
+  component.confirmDelete(dialog, { focus: vi.fn() } as unknown as HTMLElement);
+  deletion.error(new HttpErrorResponse({ status: 404 }));
+  expect(service.delete).toHaveBeenCalledOnce();
+  expect(sync.notifyChanged).not.toHaveBeenCalled();
+});
+
+it('reloads silently when another tab changes the library, keeping the list on screen', () => {
+  const { component, service, changes } = setup();
+  const added: Track = { ...track, id: '2', title: 'Funk' };
+  const response = new Subject<{ items: Track[]; page: number; pages: number; total: number; limit: number }>();
+  service.list.mockReturnValueOnce(response as never);
+  changes.next();
+  expect(service.list).toHaveBeenCalledTimes(2);
+  expect(component.loading()).toBe(false);
+  expect(component.tracks()).toEqual([track]);
+  response.next({ items: [added, track], page: 1, pages: 2, total: 7, limit: 5 }); response.complete();
+  expect(component.tracks()).toEqual([added, track]);
+  expect(component.loading()).toBe(false);
+});
+
+it('keeps the current list without an error message when a silent reload fails', () => {
+  const { component, service, changes } = setup();
+  service.list.mockReturnValueOnce(throwError(() => new HttpErrorResponse({ status: 0 })) as never);
+  changes.next();
+  expect(component.tracks()).toEqual([track]);
+  expect(component.error()).toBe('');
+  expect(component.loading()).toBe(false);
+});
+
+it('moves to the last existing page when the current page disappeared', () => {
+  const { component, service, changes } = setup();
+  component.page.set(2);
+  service.list
+    .mockReturnValueOnce(of({ items: [], page: 2, pages: 1, total: 5, limit: 5 }))
+    .mockReturnValueOnce(of({ items: [track], page: 1, pages: 1, total: 5, limit: 5 }));
+  changes.next();
+  expect(service.list).toHaveBeenNthCalledWith(2, 2);
+  expect(service.list).toHaveBeenLastCalledWith(1);
+  expect(component.page()).toBe(1);
+  expect(component.pages()).toBe(1);
+  expect(component.tracks()).toEqual([track]);
+});
+
+it('stops listening to the other tabs when the page is destroyed', () => {
+  const { service, changes, injector } = setup();
+  injector.destroy(); cleanups.pop();
+  changes.next();
+  expect(service.list).toHaveBeenCalledOnce();
 });

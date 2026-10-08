@@ -6,6 +6,7 @@ import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { finalize, Subscription } from 'rxjs';
 import { Track } from '../../shared/models/track.model';
+import { LibrarySyncService } from '../../shared/services/library-sync.service';
 import { TrackService } from '../../shared/services/track.service';
 
 @Component({
@@ -17,6 +18,7 @@ export class TracksPageComponent {
   private readonly service = inject(TrackService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly snackBar = inject(MatSnackBar);
+  private readonly sync = inject(LibrarySyncService);
   private listRequest?: Subscription;
   private audioRequest?: Subscription;
   readonly tracks = signal<Track[]>([]);
@@ -40,6 +42,8 @@ export class TracksPageComponent {
   constructor() {
     this.destroyRef.onDestroy(() => this.releaseAudio());
     this.load();
+    // Ajout ou suppression dans un autre onglet, ou retour sur cet onglet : la liste se met à jour seule.
+    this.sync.changes.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.load({ silent: true }));
   }
 
   private fileError(file: File): string {
@@ -71,20 +75,34 @@ export class TracksPageComponent {
     this.uploadSuccess.set('');
   }
 
-  load(): void {
+  /**
+   * Charge la page courante. En mode silencieux (synchronisation entre onglets),
+   * la liste affichée reste visible pendant la requête et un échec la conserve.
+   */
+  load({ silent = false } = {}): void {
     this.listRequest?.unsubscribe();
-    this.error.set('');
-    this.loading.set(true);
+    if (!silent) {
+      this.error.set('');
+      this.loading.set(true);
+    }
     this.listRequest = this.service.list(this.page()).pipe(
       takeUntilDestroyed(this.destroyRef), finalize(() => this.loading.set(false)),
     ).subscribe({
       next: response => {
+        // La page courante a disparu (pistes supprimées ailleurs) : afficher la dernière page existante.
+        if (!response.items.length && this.page() > response.pages) {
+          this.page.set(response.pages);
+          this.load({ silent });
+          return;
+        }
+        this.error.set('');
         this.tracks.set(response.items);
         this.pages.set(response.pages);
         console.debug('[TracksPage] Pistes chargées', response.items.length);
       },
       error: (error: HttpErrorResponse) => {
         console.error('[TracksPage] Chargement HTTP', error.status);
+        if (silent) return;
         this.error.set('Impossible de charger les pistes. Vérifiez votre connexion puis réessayez.');
       },
     });
@@ -125,6 +143,7 @@ export class TracksPageComponent {
         this.file.set(null);
         input.value = '';
         this.uploadSuccess.set('Votre morceau a été importé.');
+        this.sync.notifyChanged();
         this.page.set(1);
         this.load();
       },
@@ -167,6 +186,7 @@ export class TracksPageComponent {
     ).subscribe({
       next: () => {
         console.debug('[TracksPage] Piste supprimée', track.id);
+        this.sync.notifyChanged();
         this.removeFromScreen(track, dialog, focusTarget);
         this.notify(`« ${track.title} » a été supprimé.`);
       },

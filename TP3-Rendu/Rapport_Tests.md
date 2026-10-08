@@ -6,7 +6,7 @@ Exécution du 6 octobre 2026, branche `tp3-finalisation`. Aucun test ne dépend 
 
 | Commande | Résultat observé |
 |---|---|
-| `cd frontend-starter && npm test` (`vitest run tests`) | **8 fichiers, 79 tests réussis, 0 échec** |
+| `cd frontend-starter && npm test` (`vitest run tests`) | **9 fichiers, 90 tests réussis, 0 échec** (mise à jour du 8 octobre, après la synchronisation entre onglets — voir § 6) |
 | `cd backend && npm test` (`node --test`) | **8 tests réussis, 0 échec** |
 | `cd frontend-starter && npm run build` | **Compilation réussie** (`Application bundle generation complete`) |
 
@@ -59,7 +59,36 @@ Ces tests s'ajoutent à `api.test.js` (santé, schémas) et à `password.test.js
 
 Ils passent tous : `auth-forms`, `auth-interceptor` (l'en-tête `Authorization: Bearer …` est bien ajouté), `auth-navigation` (le guard redirige un visiteur sans token), `auth-return-url`, `password-form`, `profile-page` et les tests audio de `tracks-page`.
 
-## 6. Preuves Network — à compléter par le binôme
+## 6. Synchronisation entre onglets (amélioration, 8 octobre 2026)
+
+Un ajout ou une suppression dans un onglet met à jour la bibliothèque des autres onglets sans clic sur « Actualiser ». Le mécanisme repose sur `BroadcastChannel` (onglets du même navigateur) et sur `visibilitychange` (retour sur l'onglet).
+
+`frontend-starter/tests/library-sync.spec.ts` (nouveau), avec un faux `BroadcastChannel` et un faux `document` :
+
+| Test | Résultat attendu | Observé |
+|---|---|---|
+| Notification après une modification | Message `'changed'` sur le canal `gpc-library`, sans aucune donnée | ✅ |
+| Message reçu par un onglet visible | Demande de rechargement émise | ✅ |
+| Onglet caché | Pas de rechargement tant qu'il est caché ; rechargement au retour sur l'onglet | ✅ |
+| Fermeture de l'application | Canal fermé | ✅ |
+| Navigateur sans `BroadcastChannel` | Pas d'erreur ; rechargement au retour sur l'onglet conservé | ✅ |
+
+`frontend-starter/tests/tracks-page.spec.ts` (tests ajoutés) :
+
+| Test | Résultat attendu | Observé |
+|---|---|---|
+| Notification des autres onglets | Envoyée uniquement après un upload réussi (pas pendant la progression) et après une suppression réussie | ✅ |
+| Échec d'upload ou suppression en 404 | Aucune notification | ✅ |
+| Rechargement silencieux | Nouvelle requête `list`, sans « Chargement… » ; ancienne liste visible jusqu'à la réponse, puis remplacée | ✅ |
+| Échec du rechargement silencieux | Liste conservée, aucun message d'erreur | ✅ |
+| Page courante disparue (pistes supprimées ailleurs) | Bascule automatique sur la dernière page existante | ✅ |
+| Destruction de la page | Plus aucun rechargement | ✅ |
+
+Vérification manuelle à faire, avec le backend connecté et deux onglets sur « Mes morceaux » côte à côte :
+- importer une piste dans le premier : elle apparaît dans le second ;
+- la supprimer : elle disparaît du second.
+
+## 7. Preuves Network — à compléter par le binôme
 
 Non réalisées : le backend ne pouvait pas se connecter à MongoDB Atlas, car l'IP n'était pas autorisée.
 
