@@ -1,0 +1,5 @@
+:host { display: block; }
+.cover { aspect-ratio: 1; overflow: hidden; border-radius: 10px; background: linear-gradient(135deg, #eaf3ee, #d2e6dc); display: flex; flex-direction: column; align-items: center; justify-content: center; color: #426556; }
+img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.note { font-size: clamp(2rem, 7vw, 3.5rem); line-height: 1.2; }
+.caption { font-size: 0.8rem; padding: 0.5rem; text-align: center; }

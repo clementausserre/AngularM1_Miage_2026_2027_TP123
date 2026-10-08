@@ -32,7 +32,12 @@
                     "defaultConfiguration": "development"
                 },
                 "test": {
-                    "builder": "@angular/build:unit-test"
+                    "builder": "@angular/build:unit-test",
+                    "options": {
+                        "buildTarget": "gpc:build",
+                        "include": ["../tests/**/*.spec.ts"],
+                        "tsConfig": "tsconfig.spec.json"
+                    }
                 }
             }
         }

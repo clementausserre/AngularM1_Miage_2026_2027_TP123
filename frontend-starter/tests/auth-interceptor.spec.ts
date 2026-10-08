@@ -20,7 +20,7 @@ function setup(url: string, initialToken: string | null = 'expired-token') {
     { provide: Router, useValue: router },
   ] });
   const response = new Subject<never>();
-  const next = vi.fn(() => response);
+  const next = vi.fn((_request: HttpRequest<unknown>) => response);
   const onError = vi.fn();
   runInInjectionContext(injector, () => authInterceptor(new HttpRequest('GET', url), next))
     .subscribe({ error: onError });

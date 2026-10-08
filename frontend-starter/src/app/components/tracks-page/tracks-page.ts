@@ -6,9 +6,14 @@ import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { finalize, Subscription, timer } from 'rxjs';
 import { Track } from '../../shared/models/track.model';
 import { TrackService } from '../../shared/services/track.service';
+import { CoverPickerComponent } from '../cover-picker/cover-picker';
+import { TrackCoverComponent } from '../track-cover/track-cover';
+import { CoverEditorComponent } from '../cover-editor/cover-editor';
+import { coverFileError } from '../../shared/utils/cover-file';
+import { uploadErrorMessage } from '../../shared/utils/upload-error-message';
 
 @Component({
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, CoverPickerComponent, TrackCoverComponent, CoverEditorComponent],
   templateUrl: './tracks-page.html',
   styleUrl: './tracks-page.css',
 })
@@ -36,6 +41,9 @@ export class TracksPageComponent {
   readonly deleteError = signal('');
   readonly deleteSuccess = signal('');
   readonly file = signal<File | null>(null);
+  readonly coverFile = signal<File | null>(null);
+  readonly coverInvalid = signal(false);
+  readonly coverReset = signal(0);
   readonly title = new FormControl('', { nonNullable: true });
 
   constructor() {
@@ -70,6 +78,18 @@ export class TracksPageComponent {
     input.value = '';
     this.uploadError.set('');
     this.uploadSuccess.set('');
+    this.resetCover();
+  }
+
+  private resetCover(): void {
+    this.coverFile.set(null);
+    this.coverInvalid.set(false);
+    this.coverReset.update(value => value + 1);
+  }
+
+  coverUpdated(updated: Track): void {
+    this.tracks.update(tracks => tracks.map(track => track.id === updated.id ? updated : track));
+    if (this.selectedTrack()?.id === updated.id) this.selectedTrack.set(updated);
   }
 
   load(): void {
@@ -108,15 +128,20 @@ export class TracksPageComponent {
   }
 
   upload(input: HTMLInputElement): void {
-    if (this.uploading()) return;
+    if (this.uploading() || this.coverInvalid()) return;
     const file = this.file();
     this.uploadSuccess.set('');
     this.uploadError.set(file ? this.fileError(file) : 'Choisissez un fichier audio.');
     if (!file || this.uploadError()) return;
+    const cover = this.coverFile();
+    if (cover) {
+      this.uploadError.set(coverFileError(cover));
+      if (this.uploadError()) return;
+    }
     this.uploading.set(true);
     this.uploadProgress.set(null);
     this.title.disable();
-    this.service.upload(file, this.title.value.trim() || file.name).pipe(
+    this.service.upload(file, this.title.value.trim() || file.name, cover).pipe(
       takeUntilDestroyed(this.destroyRef),
       finalize(() => { this.uploading.set(false); this.uploadProgress.set(null); this.title.enable(); }),
     ).subscribe({
@@ -130,6 +155,7 @@ export class TracksPageComponent {
         console.debug('[TracksPage] Import réussi', event.body?.id);
         this.title.reset();
         this.file.set(null);
+        this.resetCover();
         input.value = '';
         this.uploadSuccess.set('Votre morceau a été importé.');
         this.page.set(1);
@@ -137,10 +163,7 @@ export class TracksPageComponent {
       },
       error: (error: HttpErrorResponse) => {
         console.error('[TracksPage] Import HTTP', error.status);
-        this.uploadError.set(error.status === 400 || error.status === 413
-          ? 'Import refusé. Vérifiez le format MP3, WAV, OGG ou M4A et la limite de 25 Mo.'
-          : error.status === 0 ? 'Serveur inaccessible. Votre sélection est conservée pour réessayer.'
-          : 'L’import a échoué. Votre sélection est conservée pour réessayer.');
+        this.uploadError.set(uploadErrorMessage(error));
       },
     });
   }

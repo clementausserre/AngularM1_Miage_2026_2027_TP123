@@ -14,10 +14,11 @@ export class TrackService {
     });
   }
 
-  upload(file: File, title: string) {
+  upload(file: File, title: string, cover?: File | null) {
     const body = new FormData();
     body.append('audio', file);
     body.append('title', title);
+    if (cover) body.append('cover', cover);
     return this.http.post<Track>('/api/tracks', body, {
       observe: 'events',
       reportProgress: true,
@@ -32,5 +33,19 @@ export class TrackService {
 
   delete(id: string) {
     return this.http.delete<void>(`/api/tracks/${id}`);
+  }
+
+  cover(id: string) {
+    return this.http.get(`/api/tracks/${id}/cover`, { responseType: 'blob' });
+  }
+
+  setCover(id: string, file: File) {
+    const body = new FormData();
+    body.append('cover', file);
+    return this.http.put<Track>(`/api/tracks/${id}/cover`, body);
+  }
+
+  removeCover(id: string) {
+    return this.http.delete<void>(`/api/tracks/${id}/cover`);
   }
 }

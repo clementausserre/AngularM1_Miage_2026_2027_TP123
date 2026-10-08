@@ -6,4 +6,13 @@ export interface Track {
   mimeType: string;
   size: number;
   createdAt: string;
+  cover?: TrackCover | null;
+}
+
+export interface TrackCover {
+  mimeType: string;
+  size: number;
+  width: number;
+  height: number;
+  version: string;
 }

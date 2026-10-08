@@ -59,4 +59,25 @@ les logs et les tests.
 
 Les fichiers audio présents dans `frontend-starter/fichiers-audio-de-test/` sont
 des fixtures fournies pour les essais. Aucun fichier uploadé, dossier de
-dépendances (`node_modules`), fichier `.env` ou identifiant local n’est inclus.
+dépendances (`node_modules`), fichier `.env` ou identifiant local n'est inclus.
+
+## Couvertures — TP2
+
+Le formulaire d'import accepte une couverture facultative JPEG, PNG ou WebP
+(5 Mo maximum, non animée). Chaque card permet aussi d'ajouter, remplacer ou
+retirer une couverture. L'aperçu reste local jusqu'à l'enregistrement.
+Le serveur transforme les images en WebP de 800 pixels maximum et les conserve
+dans `backend/data/uploads/covers` lorsque le backend est lancé depuis son
+dossier. Seul le propriétaire peut les télécharger. Les anciennes pistes
+restent compatibles et affichent un visuel par défaut.
+
+Après récupération des changements, exécuter `npm install` dans `backend/`
+et `frontend-starter/`, puis redémarrer le backend et le frontend. Sharp est
+utilisé côté serveur ; jsdom permet d'exécuter les tests Angular.
+
+Vérification automatisée : `npm test` dans chaque dossier, puis `npm run build`
+dans `frontend-starter/`. Les tests backend utilisent de vrais uploads HTTP et
+un disque temporaire avec une persistance MongoDB simulée, sans toucher Atlas.
+Les tests frontend vérifient notamment le JWT, les aperçus et la révocation des
+URL temporaires. Dans le navigateur, vérifier dans Network le multipart
+`audio`/`title`/`cover` et les requêtes privées `/api/tracks/:id/cover`.

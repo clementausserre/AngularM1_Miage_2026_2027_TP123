@@ -16,7 +16,7 @@ function setup() {
   const audios: Subject<Blob>[] = [];
   const service = {
     list: vi.fn(() => of({ items: [track], page: 1, pages: 2, total: 6, limit: 5 })),
-    upload: vi.fn(() => upload),
+    upload: vi.fn((_file: File, _title: string, _cover?: File | null) => upload),
     delete: vi.fn(() => deletion),
     audio: vi.fn(() => { const response = new Subject<Blob>(); audios.push(response); return response; }),
   };
@@ -63,6 +63,38 @@ it('keeps selection after a server failure', () => {
   expect(component.uploadError()).toContain('Import refusé');
   expect(component.file()).not.toBeNull();
   expect(component.title.enabled).toBe(true);
+});
+
+it('includes a selected cover, keeps it on error and clears it after success', () => {
+  const { component, service, upload, input, choose } = setup();
+  const cover = new File(['image'], 'cover.png', { type: 'image/png' });
+  choose(); component.coverFile.set(cover);
+  component.upload(input as unknown as HTMLInputElement);
+  expect(service.upload.mock.calls[0]?.[2]).toBe(cover);
+  upload.next(new HttpResponse({ body: track, status: 201 })); upload.complete();
+  expect(component.coverFile()).toBeNull();
+  expect(component.coverReset()).toBe(1);
+});
+
+it('keeps image selection and displays the image-specific backend rejection', () => {
+  const { component, upload, input, choose } = setup();
+  const cover = new File(['image'], 'cover.png', { type: 'image/png' });
+  choose(); component.coverFile.set(cover); component.upload(input as unknown as HTMLInputElement);
+  upload.error(new HttpErrorResponse({ status: 400, error: { message: 'Image invalide' } }));
+  expect(component.coverFile()).toBe(cover);
+  expect(component.uploadError()).toBe('Image invalide');
+});
+
+it('prevents import when the picker reports an invalid image and updates the playing cover without reloading audio', () => {
+  const { component, service, input, choose } = setup();
+  choose(); component.coverInvalid.set(true); component.upload(input as unknown as HTMLInputElement);
+  expect(service.upload).not.toHaveBeenCalled();
+  component.selectedTrack.set(track);
+  const updated = { ...track, cover: { version: 'v2', mimeType: 'image/webp', width: 100, height: 100, size: 42 } };
+  component.coverUpdated(updated);
+  expect(component.tracks()[0]).toEqual(updated);
+  expect(component.selectedTrack()).toEqual(updated);
+  expect(service.audio).not.toHaveBeenCalled();
 });
 
 it('reports upload progress but waits for the server response before confirming success', () => {

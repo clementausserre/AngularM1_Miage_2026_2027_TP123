@@ -1,0 +1,14 @@
+<label [for]="inputId()">Image de couverture <span>(facultatif)</span></label>
+<input #fileInput [id]="inputId()" type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+  [disabled]="disabled()" (change)="choose($event)" [attr.aria-describedby]="inputId() + '-help ' + inputId() + '-error'" />
+<small [id]="inputId() + '-help'">JPEG, PNG ou WebP non animé · 5 Mo et 16 millions de pixels maximum. Utilisez une image dont vous avez les droits.</small>
+@if (preview()) {
+  <img [src]="preview()" alt="Aperçu de la couverture sélectionnée" width="160" height="160" (error)="previewFailed()" />
+}
+@if (filename()) { <small class="filename">{{ filename() }}</small> }
+<div [id]="inputId() + '-error'" aria-live="polite">
+  @if (error()) { <p class="error">{{ error() }}</p> }
+</div>
+@if (preview() || error()) {
+  <button type="button" [disabled]="disabled()" (click)="clear()">Retirer la sélection</button>
+}

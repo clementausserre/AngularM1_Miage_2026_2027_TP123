@@ -1,0 +1,10 @@
+:host { display: block; margin: 1rem 0; }
+label { display: block; font-weight: 600; margin-bottom: 0.3rem; }
+label span, small { color: #52685f; font-weight: 400; }
+input { display: block; width: 100%; min-width: 0; font: inherit; font-size: 0.85rem; }
+small { display: block; line-height: 1.6; margin-top: 0.4rem; }
+.filename { overflow-wrap: anywhere; }
+img { display: block; width: 160px; max-width: 100%; height: 160px; object-fit: contain; background: #eaf3ee; border-radius: 8px; margin-top: 0.7rem; }
+.error { color: #962b27; background: #fff1ef; padding: 0.6rem; border-radius: 6px; }
+button { min-height: 44px; background: white; color: #245d4c; border: 1px solid #a9c2b5; font: inherit; margin-top: 0.5rem; }
+button:focus-visible, input:focus-visible { outline: 2px solid #1d755e; outline-offset: 3px; }

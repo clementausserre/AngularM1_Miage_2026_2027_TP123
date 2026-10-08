@@ -1,0 +1,21 @@
+<button type="button" [disabled]="busy() || disabled()" (click)="toggle()"
+  [attr.aria-expanded]="editing()" [attr.aria-controls]="'cover-editor-' + track().id">
+  {{ editing() ? 'Fermer' : track().cover ? 'Modifier la couverture' : 'Ajouter une couverture' }}
+</button>
+<div [id]="'cover-editor-' + track().id" [attr.aria-busy]="busy()">
+  @if (editing()) {
+    <app-cover-picker [inputId]="'cover-file-' + track().id" [disabled]="busy() || disabled()"
+      (fileChange)="file.set($event)" (invalidChange)="invalid.set($event)" />
+    <div class="actions">
+      <button type="button" class="save" [disabled]="busy() || disabled() || !file() || invalid()" (click)="save()">Enregistrer</button>
+      @if (track().cover) {
+        <button type="button" class="remove" [disabled]="busy() || disabled()" (click)="save(true)">Retirer la couverture</button>
+      }
+    </div>
+  }
+</div>
+<div role="status">
+  @if (busy()) { <p>Enregistrement…</p> }
+  @if (success()) { <p class="success">{{ success() }}</p> }
+</div>
+@if (error()) { <p class="error" role="alert">{{ error() }}</p> }

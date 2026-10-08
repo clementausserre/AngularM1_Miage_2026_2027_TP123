@@ -36,6 +36,10 @@ audio { display: block; width: 100%; margin: 0.8rem 0; }
 .track-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
 .track-card { display: flex; flex-direction: column; border: 2px solid transparent; padding: 1.1rem; min-width: 0; }
 .track-card.selected { border-color: #1d755e; }
+.track-card > app-track-cover { margin-bottom: 1rem; }
+.player-identity { display: flex; align-items: center; gap: 1rem; }
+.player-identity app-track-cover { width: 96px; flex-shrink: 0; }
+.player-identity > div { min-width: 0; }
 .track-top { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
 .format { background: #eaf3ee; color: #245d4c; border-radius: 6px; padding: 0.25rem 0.5rem; font-size: 0.75rem; font-weight: 700; }
 .selected-label { color: #245d4c; font-size: 0.75rem; }

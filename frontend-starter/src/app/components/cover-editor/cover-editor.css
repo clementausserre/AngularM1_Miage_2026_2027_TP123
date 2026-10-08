@@ -1,0 +1,9 @@
+:host { display: block; margin-top: 0.6rem; }
+button { min-height: 44px; font: inherit; background: white; color: #245d4c; border: 1px solid #a9c2b5; width: 100%; }
+button:focus-visible { outline: 2px solid #1d755e; outline-offset: 3px; }
+.actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.save { background: #245d4c; color: white; }
+.remove { color: #962b27; border-color: #e8bdb7; }
+p { line-height: 1.5; font-size: 0.9rem; }
+.error { color: #962b27; }
+.success { color: #205b3b; }
