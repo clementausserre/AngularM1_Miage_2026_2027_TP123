@@ -3,8 +3,10 @@ import { Component, DestroyRef, inject, signal } from '@angular/core';
 import { HttpEventType } from '@angular/common/http';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
-import { finalize, Subscription, timer } from 'rxjs';
+import { MatSnackBar } from '@angular/material/snack-bar';
+import { finalize, Subscription } from 'rxjs';
 import { Track } from '../../shared/models/track.model';
+import { LibrarySyncService } from '../../shared/services/library-sync.service';
 import { TrackService } from '../../shared/services/track.service';
 import { CoverPickerComponent } from '../cover-picker/cover-picker';
 import { TrackCoverComponent } from '../track-cover/track-cover';
@@ -20,9 +22,10 @@ import { uploadErrorMessage } from '../../shared/utils/upload-error-message';
 export class TracksPageComponent {
   private readonly service = inject(TrackService);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly snackBar = inject(MatSnackBar);
+  private readonly sync = inject(LibrarySyncService);
   private listRequest?: Subscription;
   private audioRequest?: Subscription;
-  private deleteSuccessTimer?: Subscription;
   readonly tracks = signal<Track[]>([]);
   readonly page = signal(1);
   readonly pages = signal(1);
@@ -38,8 +41,6 @@ export class TracksPageComponent {
   readonly uploadSuccess = signal('');
   readonly deleteTarget = signal<Track | null>(null);
   readonly deleting = signal(false);
-  readonly deleteError = signal('');
-  readonly deleteSuccess = signal('');
   readonly file = signal<File | null>(null);
   readonly coverFile = signal<File | null>(null);
   readonly coverInvalid = signal(false);
@@ -49,6 +50,8 @@ export class TracksPageComponent {
   constructor() {
     this.destroyRef.onDestroy(() => this.releaseAudio());
     this.load();
+    // Ajout ou suppression dans un autre onglet, ou retour sur cet onglet : la liste se met à jour seule.
+    this.sync.changes.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.load({ silent: true }));
   }
 
   private fileError(file: File): string {
@@ -92,33 +95,41 @@ export class TracksPageComponent {
     if (this.selectedTrack()?.id === updated.id) this.selectedTrack.set(updated);
   }
 
-  load(): void {
+  /**
+   * Charge la page courante. En mode silencieux (synchronisation entre onglets),
+   * la liste affichée reste visible pendant la requête et un échec la conserve.
+   */
+  load({ silent = false } = {}): void {
     this.listRequest?.unsubscribe();
-    this.error.set('');
-    this.loading.set(true);
+    if (!silent) {
+      this.error.set('');
+      this.loading.set(true);
+    }
     this.listRequest = this.service.list(this.page()).pipe(
       takeUntilDestroyed(this.destroyRef), finalize(() => this.loading.set(false)),
     ).subscribe({
       next: response => {
+        // La page courante a disparu (pistes supprimées ailleurs) : afficher la dernière page existante.
+        if (!response.items.length && this.page() > response.pages) {
+          this.page.set(response.pages);
+          this.load({ silent });
+          return;
+        }
+        this.error.set('');
         this.tracks.set(response.items);
         this.pages.set(response.pages);
         console.debug('[TracksPage] Pistes chargées', response.items.length);
       },
       error: (error: HttpErrorResponse) => {
         console.error('[TracksPage] Chargement HTTP', error.status);
+        if (silent) return;
         this.error.set('Impossible de charger les pistes. Vérifiez votre connexion puis réessayez.');
       },
     });
   }
 
   refresh(): void {
-    this.clearDeleteSuccess();
     this.load();
-  }
-
-  private clearDeleteSuccess(): void {
-    this.deleteSuccessTimer?.unsubscribe();
-    this.deleteSuccess.set('');
   }
 
   go(page: number): void {
@@ -158,6 +169,7 @@ export class TracksPageComponent {
         this.resetCover();
         input.value = '';
         this.uploadSuccess.set('Votre morceau a été importé.');
+        this.sync.notifyChanged();
         this.page.set(1);
         this.load();
       },
@@ -177,8 +189,7 @@ export class TracksPageComponent {
   requestDelete(track: Track, dialog: HTMLDialogElement): void {
     if (this.deleting()) return;
     this.deleteTarget.set(track);
-    this.deleteError.set('');
-    this.clearDeleteSuccess();
+    this.snackBar.dismiss();
     dialog.showModal();
   }
 
@@ -192,37 +203,49 @@ export class TracksPageComponent {
     const track = this.deleteTarget();
     if (!track || this.deleting()) return;
     this.deleting.set(true);
-    this.deleteError.set('');
+    this.snackBar.dismiss();
     this.service.delete(track.id).pipe(
       takeUntilDestroyed(this.destroyRef), finalize(() => this.deleting.set(false)),
     ).subscribe({
       next: () => {
         console.debug('[TracksPage] Piste supprimée', track.id);
-        if (this.selectedTrack()?.id === track.id) {
-          this.audioRequest?.unsubscribe();
-          this.releaseAudio();
-          this.selectedTrack.set(null);
-          this.audioError.set('');
-        }
-        this.clearDeleteSuccess();
-        this.deleteSuccess.set(`« ${track.title} » a été supprimé.`);
-        this.deleteSuccessTimer = timer(4000).pipe(
-          takeUntilDestroyed(this.destroyRef),
-        ).subscribe(() => this.deleteSuccess.set(''));
-        this.deleteTarget.set(null);
-        dialog.close();
-        focusTarget.focus();
-        if (this.tracks().length === 1 && this.page() > 1) this.page.update(page => page - 1);
-        this.load();
+        this.sync.notifyChanged();
+        this.removeFromScreen(track, dialog, focusTarget);
+        this.notify(`« ${track.title} » a été supprimé.`);
       },
       error: (error: HttpErrorResponse) => {
         console.error('[TracksPage] Suppression HTTP', error.status);
-        this.deleteError.set(error.status === 404
-          ? 'Ce morceau est introuvable ou vous n’y avez pas accès. Fermez cette fenêtre et actualisez la liste.'
-          : error.status === 0 ? 'Serveur inaccessible. Vérifiez votre connexion puis réessayez.'
+        if (error.status === 404) {
+          // Piste déjà supprimée (autre onglet) ou appartenant à un autre utilisateur :
+          // le backend ne distingue pas les deux cas, la carte affichée est donc obsolète.
+          this.removeFromScreen(track, dialog, focusTarget);
+          this.notify('Ce morceau est introuvable ou vous n’y avez pas accès. La liste a été actualisée.');
+          return;
+        }
+        // Erreur réseau ou serveur : la confirmation reste ouverte pour pouvoir réessayer.
+        this.notify(error.status === 0
+          ? 'Serveur inaccessible. Vérifiez votre connexion puis réessayez.'
           : 'La suppression n’a pas pu être confirmée. Actualisez la liste avant de réessayer.');
       },
     });
+  }
+
+  private removeFromScreen(track: Track, dialog: HTMLDialogElement, focusTarget: HTMLElement): void {
+    if (this.selectedTrack()?.id === track.id) {
+      this.audioRequest?.unsubscribe();
+      this.releaseAudio();
+      this.selectedTrack.set(null);
+      this.audioError.set('');
+    }
+    this.deleteTarget.set(null);
+    dialog.close();
+    focusTarget.focus();
+    if (this.tracks().length === 1 && this.page() > 1) this.page.update(page => page - 1);
+    this.load();
+  }
+
+  private notify(message: string): void {
+    this.snackBar.open(message, 'Fermer', { duration: 5000 });
   }
 
   play(track: Track): void {
