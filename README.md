@@ -90,3 +90,26 @@ onglets. Un changement de compte ou une déconnexion dans un autre onglet provoq
 un rechargement complet pour effacer les données et la lecture de l'ancien compte.
 Les mots de passe créés ou modifiés sont limités à 72 octets UTF-8 (minimum 8
 caractères), avec la même validation dans le formulaire et l'API.
+# Lecteur permanent — TD4
+
+Le lecteur apparaît en bas de l'application après sélection d'un morceau et
+reste présent entre la bibliothèque et le profil. Les contrôles natifs du
+navigateur permettent lecture/pause, déplacement dans le morceau et volume
+(selon le navigateur, le volume mobile se règle avec les boutons du téléphone).
+« Fermer » arrête la lecture. Sélectionner à nouveau le même morceau reprend
+la lecture sans télécharger le fichier une seconde fois.
+
+`PlayerService` conserve le morceau et son URL Blob en mémoire ;
+`AudioPlayerComponent`, placé hors du `router-outlet`, conserve l'élément audio.
+Les fichiers restent sur le serveur et sont téléchargés par l'API authentifiée
+existante. Aucun fichier audio n'est ajouté au localStorage. La navigation
+conserve la lecture, mais un rechargement complet de la page la réinitialise.
+La déconnexion, un changement de session ou la suppression du morceau arrêtent
+le lecteur et libèrent l'URL Blob. Les pochettes restent synchronisées, y
+compris lorsqu'on consulte le profil. Cette base pourra ensuite accueillir
+les playlists. À la fin d'un morceau, le lecteur charge automatiquement le
+suivant dans l'ordre affiché par la bibliothèque, y compris sur les pages
+suivantes. Il s'arrête après le dernier morceau, sans revenir au premier.
+Les métadonnées de la bibliothèque sont relues à chaque transition ; seul
+l'audio du morceau suivant est téléchargé. Une erreur réseau permet de
+réessayer l'enchaînement depuis le lecteur.

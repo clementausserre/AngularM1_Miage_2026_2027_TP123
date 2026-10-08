@@ -101,7 +101,14 @@ try {
       const data = new DataTransfer(); data.items.add(new File([bytes], 'cover.png', { type: 'image/png' }));
       const input = document.querySelector(selector); input.files = data.files; input.dispatchEvent(new Event('change', { bubbles: true }));
     };
-    const data = new DataTransfer(); data.items.add(new File(['audio'], 'browser-test.mp3', { type: 'audio/mpeg' }));
+    const wav = new Uint8Array(44 + 8000 * 2 * 60);
+    const view = new DataView(wav.buffer);
+    const label = (offset, text) => [...text].forEach((c, i) => wav[offset + i] = c.charCodeAt(0));
+    label(0, 'RIFF'); view.setUint32(4, wav.length - 8, true); label(8, 'WAVE'); label(12, 'fmt ');
+    view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 1, true);
+    view.setUint32(24, 8000, true); view.setUint32(28, 16000, true); view.setUint16(32, 2, true); view.setUint16(34, 16, true);
+    label(36, 'data'); view.setUint32(40, wav.length - 44, true);
+    const data = new DataTransfer(); data.items.add(new File([wav], 'browser-test.wav', { type: 'audio/wav' }));
     const input = document.querySelector('#track-file'); input.files = data.files; input.dispatchEvent(new Event('change', { bubbles: true }));
     const title = document.querySelector('#track-title'); title.value = 'Browser cover test'; title.dispatchEvent(new Event('input', { bubbles: true }));
     window.selectCover('#import-cover', '#17654c');
@@ -134,9 +141,20 @@ try {
   };
   await waitFor(() => secondEvaluate(`!!document.querySelector('.track-card app-track-cover img')?.naturalWidth`), 'Second tab cover absent');
   await secondEvaluate(`[...document.querySelectorAll('button')].find(b => b.textContent.trim() === 'Lire le morceau').click()`);
-  await waitFor(() => secondEvaluate(`!!document.querySelector('.player-identity app-track-cover img')?.naturalWidth && !!document.querySelector('audio')`), 'Second tab player absent');
+  await waitFor(() => secondEvaluate(`!!document.querySelector('.player-identity app-track-cover img')?.naturalWidth && !!document.querySelector('audio').getAttribute('src')`), 'Second tab player absent');
   const initialPlayerCover = await secondEvaluate(`document.querySelector('.player-identity img').src`);
   const initialAudio = await secondEvaluate(`document.querySelector('audio').src`);
+  await waitFor(() => secondEvaluate(`document.querySelector('audio').readyState >= 2`), 'Audio did not load');
+  await secondEvaluate(`(async () => { window.playingElement = document.querySelector('audio'); await playingElement.play(); playingElement.currentTime = 12; playingElement.volume = 0.4; [...document.querySelectorAll('a')].find(a => a.textContent.trim() === 'Profil').click(); })()`);
+  await waitFor(() => secondEvaluate(`location.pathname === '/profile'`), 'Profile navigation failed');
+  assert.equal(await secondEvaluate(`document.querySelector('audio') === playingElement && !playingElement.paused && playingElement.currentTime >= 12 && playingElement.volume === 0.4`), true, 'Navigation interrupted playback');
+  await secondEvaluate(`playingElement.pause(); [...document.querySelectorAll('a')].find(a => a.textContent.trim() === 'Backing tracks').click()`);
+  await waitFor(() => secondEvaluate(`!!document.querySelector('.track-card')`), 'Return to library failed');
+  assert.equal(await secondEvaluate(`document.querySelector('audio') === playingElement && playingElement.paused && playingElement.currentTime >= 12`), true, 'Navigation lost pause or position');
+  await secondCall('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
+  assert.equal(await secondEvaluate(`document.documentElement.scrollWidth <= innerWidth && document.querySelector('.player').getBoundingClientRect().bottom <= innerHeight + 1`), true, 'Player overflows mobile viewport');
+  await secondEvaluate(`[...document.querySelectorAll('a')].find(a => a.textContent.trim() === 'Profil').click()`);
+
   await clickText('Modifier la couverture');
   await waitFor(() => evaluate(`!!document.querySelector('app-cover-editor input')`), 'Editor absent');
   await evaluate(`window.selectCover('app-cover-editor input', '#624b98')`);
@@ -144,6 +162,22 @@ try {
   await waitFor(() => evaluate(`document.querySelector('app-cover-editor').textContent.includes('Couverture enregistrée.')`), 'Replacement failed');
   await waitFor(() => secondEvaluate(`document.querySelector('.player-identity img')?.src !== ${JSON.stringify(initialPlayerCover)} && !!document.querySelector('.player-identity img')?.naturalWidth`), 'Playing cover did not synchronize');
   assert.equal(await secondEvaluate(`document.querySelector('audio').src`), initialAudio, 'Cover refresh restarted audio');
+  const firstTrack = [...tracks.values()][0];
+  const followingTrack = await Track.create({ ownerId, title: 'Following WAV', originalName: firstTrack.originalName,
+    storedName: firstTrack.storedName, mimeType: firstTrack.mimeType, size: firstTrack.size });
+  await secondEvaluate(`(async () => { playingElement.currentTime = playingElement.duration - 0.15; await playingElement.play(); })()`);
+  await waitFor(() => secondEvaluate(`document.querySelector('.player-identity strong')?.textContent === 'Following WAV' && !playingElement.paused && playingElement.currentTime > 0`), 'Next track did not automatically play from profile');
+  const followingAudio = await secondEvaluate(`playingElement.src`);
+  await secondEvaluate(`playingElement.currentTime = playingElement.duration - 0.15`);
+  await waitFor(() => secondEvaluate(`playingElement.ended`), 'Last track did not end');
+  await delay(300);
+  assert.equal(await secondEvaluate(`playingElement.src`), followingAudio, 'Last track unexpectedly looped');
+  tracks.delete(followingTrack.id);
+  await secondEvaluate(`[...document.querySelectorAll('a')].find(a => a.textContent.trim() === 'Backing tracks').click()`);
+  await waitFor(() => secondEvaluate(`!!document.querySelector('.track-card')`), 'Library absent');
+  await secondEvaluate(`[...document.querySelectorAll('button')].find(b => b.textContent.trim() === 'Lire le morceau').click()`);
+  await waitFor(() => secondEvaluate(`playingElement.readyState >= 2 && playingElement.src !== ${JSON.stringify(followingAudio)}`), 'Original track not restored');
+  await secondEvaluate(`[...document.querySelectorAll('a')].find(a => a.textContent.trim() === 'Profil').click()`);
   await clickText('Modifier la couverture');
   await clickText('Retirer la couverture');
   await waitFor(() => evaluate(`document.querySelector('.track-card app-track-cover').textContent.includes('Sans couverture')`), 'Removal failed');
@@ -158,6 +192,7 @@ try {
   await waitFor(() => evaluate(`document.querySelector('dialog').open`), 'Delete dialog absent');
   await clickText('Supprimer');
   await waitFor(() => evaluate(`!document.querySelector('.track-card')`), 'Track deletion failed');
+  await waitFor(() => secondEvaluate(`!document.querySelector('audio').getAttribute('src') && document.querySelector('audio').paused`), 'Deleted track kept playing on profile');
   assert.ok(network.some(req => req.method === 'POST' && req.multipart && req.authorized));
   assert.ok(network.some(req => req.method === 'GET' && req.url.endsWith('/cover') && req.authorized));
   assert.ok(network.some(req => req.method === 'PUT' && req.multipart && req.authorized));
@@ -169,10 +204,10 @@ try {
   await waitFor(() => evaluate(`!!document.querySelector('.track-card')`), 'Old account test data absent');
   const newToken = jwt.sign({ sub: 'bbbbbbbbbbbbbbbbbbbbbbbb', sessionVersion: 0 }, process.env.JWT_SECRET);
   await secondEvaluate(`localStorage.setItem('gpc_token', ${JSON.stringify(newToken)})`);
-  await waitFor(() => evaluate(`!!document.querySelector('.empty') && !document.querySelector('.track-card') && !document.querySelector('audio')`), 'Old account data survived session switch');
+  await waitFor(() => evaluate(`!!document.querySelector('.empty') && !document.querySelector('.track-card') && !document.querySelector('audio').getAttribute('src')`), 'Old account data survived session switch');
   await secondEvaluate(`localStorage.removeItem('gpc_token')`);
   await waitFor(() => evaluate(`location.pathname === '/login' && !!document.querySelector('#login-email')`), 'Other-tab logout did not redirect');
-  console.log('BROWSER PASS: uploads and private image requests, cover synchronization without audio reload, account switch clears private data, other-tab logout redirects.');
+  console.log('BROWSER PASS: real WAV playback survives navigation, pause/seek/volume preserved, remote deletion stops player on profile, uploads and private image requests, cover synchronization without audio reload, account switch clears private data, other-tab logout redirects.');
   await call('Browser.close');
 } finally {
   ws?.close();

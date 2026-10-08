@@ -6,6 +6,7 @@ import { of, Subject, throwError } from 'rxjs';
 import { afterEach, expect, it, vi } from 'vitest';
 import { TracksPageComponent } from '../src/app/components/tracks-page/tracks-page';
 import { LibrarySyncService } from '../src/app/shared/services/library-sync.service';
+import { PlayerService } from '../src/app/shared/services/player.service';
 import { TrackService } from '../src/app/shared/services/track.service';
 import { Track } from '../src/app/shared/models/track.model';
 
@@ -26,16 +27,19 @@ function setup() {
   const snackBar = { open: vi.fn(), dismiss: vi.fn() };
   const changes = new Subject<void>();
   const sync = { changes, notifyChanged: vi.fn() };
-  const injector = Injector.create({ providers: [
+  const rootInjector = Injector.create({ providers: [
+    PlayerService,
     { provide: TrackService, useValue: service },
     { provide: MatSnackBar, useValue: snackBar },
     { provide: LibrarySyncService, useValue: sync },
   ] });
+  const injector = Injector.create({ providers: [], parent: rootInjector });
+  const player = rootInjector.get(PlayerService);
   const component = runInInjectionContext(injector, () => new TracksPageComponent());
-  cleanups.push(() => injector.destroy());
+  cleanups.push(() => { injector.destroy(); rootInjector.destroy(); });
   const input = { value: 'file', files: [new File(['audio'], 'blues.mp3', { type: 'audio/mpeg' })] };
   const choose = () => component.choose({ target: input } as unknown as Event);
-  return { component, service, snackBar, sync, changes, upload, deletion, audios, input, choose, injector };
+  return { component, service, snackBar, sync, changes, upload, deletion, audios, input, choose, injector, rootInjector, player };
 }
 it.each([
   new File([], 'empty.mp3', { type: 'audio/mpeg' }),
@@ -141,10 +145,10 @@ it('handles unknown upload size and clears progress after an error and on retry'
   expect(component.uploadProgress()).toBeNull();
   expect(component.uploading()).toBe(true);
 });
-it('honours the last audio selection and revokes replaced and final URLs', () => {
+it('honours the last selection, survives page destruction and releases audio on application destruction', () => {
   const create = vi.spyOn(URL, 'createObjectURL').mockReturnValueOnce('blob:first').mockReturnValueOnce('blob:last');
   const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
-  const { component, audios, injector } = setup();
+  const { component, audios, injector, rootInjector } = setup();
   component.play(track);
   component.play({ ...track, id: '2' });
   audios[0].next(new Blob(['old']));
@@ -154,7 +158,10 @@ it('honours the last audio selection and revokes replaced and final URLs', () =>
   component.play(track);
   expect(revoke).toHaveBeenCalledWith('blob:first');
   audios[2].next(new Blob(['last'])); audios[2].complete();
-  injector.destroy(); cleanups.pop();
+  injector.destroy();
+  expect(component.audioUrl()).toBe('blob:last');
+  expect(revoke).not.toHaveBeenCalledWith('blob:last');
+  rootInjector.destroy(); cleanups.pop();
   expect(revoke).toHaveBeenCalledWith('blob:last');
 });
 it('shows download and native playback errors', () => {
@@ -163,8 +170,29 @@ it('shows download and native playback errors', () => {
   audios[0].error(new HttpErrorResponse({ status: 404 }));
   expect(component.audioError()).toContain('introuvable');
   expect(component.audioLoading()).toBe(false);
-  component.playbackError();
+  component.player.playbackError();
   expect(component.audioError()).toContain('navigateur');
+});
+it('resumes the selected track without downloading it again and cancels a pending download on stop', () => {
+  vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:audio');
+  const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+  const { component, player, audios, service } = setup();
+  const audio = { play: vi.fn(() => Promise.resolve()), pause: vi.fn(), removeAttribute: vi.fn(), load: vi.fn() };
+  player.attach(audio as unknown as HTMLAudioElement);
+  component.play(track);
+  audios[0].next(new Blob(['audio'])); audios[0].complete();
+  component.play(track);
+  expect(service.audio).toHaveBeenCalledOnce();
+  expect(audio.play).toHaveBeenCalledOnce();
+  component.play({ ...track, id: '2' });
+  player.stop();
+  audios[1].next(new Blob(['too late']));
+  expect(player.selectedTrack()).toBeNull();
+  expect(player.audioUrl()).toBe('');
+  expect(player.audioLoading()).toBe(false);
+  expect(audio.pause).toHaveBeenCalled();
+  expect(audio.removeAttribute).toHaveBeenCalledWith('src');
+  expect(revoke).toHaveBeenCalledWith('blob:audio');
 });
 it('formats bytes into readable units', () => {
   const { component } = setup();
@@ -175,6 +203,53 @@ it('formats bytes into readable units', () => {
 function deletionDialog() {
   return { showModal: vi.fn(), close: vi.fn() } as unknown as HTMLDialogElement;
 }
+
+it('continues with the next library page after the track ends, and stops at the last track', () => {
+  const { player, service } = setup();
+  const next = { ...track, id: 'next', title: 'Next' };
+  player.selectedTrack.set(track);
+  service.list.mockReturnValueOnce(of({ items: [track], page: 1, pages: 2, total: 2, limit: 1 }))
+    .mockReturnValueOnce(of({ items: [next], page: 2, pages: 2, total: 2, limit: 1 }));
+  player.advance();
+  expect(service.list).toHaveBeenLastCalledWith(2);
+  expect(player.selectedTrack()).toEqual(next);
+  expect(service.audio).toHaveBeenCalledOnce();
+  player.audioLoading.set(false);
+  service.list.mockReturnValueOnce(of({ items: [track, next], page: 1, pages: 1, total: 2, limit: 5 }));
+  player.advance();
+  expect(service.audio).toHaveBeenCalledOnce();
+  expect(player.selectedTrack()).toEqual(next);
+});
+
+it.each(['stop', 'selection'] as const)('cancels a pending automatic transition on %s', action => {
+  const { player, service } = setup();
+  const response = new Subject<{ items: Track[]; page: number; pages: number; total: number; limit: number }>();
+  service.list.mockReturnValueOnce(response);
+  player.selectedTrack.set(track);
+  player.advance();
+  player.advance();
+  expect(service.list).toHaveBeenCalledTimes(2); // Initial page plus one transition.
+  const selected = { ...track, id: 'chosen' };
+  if (action === 'stop') player.stop(); else player.play(selected);
+  response.next({ items: [track, { ...track, id: 'unwanted' }], page: 1, pages: 1, total: 2, limit: 5 });
+  response.complete();
+  expect(player.selectedTrack()).toEqual(action === 'stop' ? null : selected);
+  expect(player.advancing()).toBe(false);
+});
+
+it('allows retry after a failed automatic transition without restarting the finished track', () => {
+  const { player, service } = setup();
+  player.selectedTrack.set(track);
+  service.list.mockReturnValueOnce(throwError(() => new HttpErrorResponse({ status: 0 })));
+  player.advance();
+  expect(player.nextError()).not.toBe('');
+  expect(player.advancing()).toBe(false);
+  expect(service.audio).not.toHaveBeenCalled();
+  service.list.mockReturnValueOnce(of({ items: [track, { ...track, id: 'next' }], page: 1, pages: 1, total: 2, limit: 5 }));
+  player.advance();
+  expect(player.nextError()).toBe('');
+  expect(player.selectedTrack()?.id).toBe('next');
+});
 
 it('requires confirmation and allows cancelling without deleting', () => {
   const { component, service } = setup();
@@ -311,8 +386,8 @@ it('moves to the last existing page when the current page disappeared', () => {
 });
 
 it('stops listening to the other tabs when the page is destroyed', () => {
-  const { service, changes, injector } = setup();
-  injector.destroy(); cleanups.pop();
+  const { service, changes, injector, rootInjector } = setup();
+  injector.destroy(); rootInjector.destroy(); cleanups.pop();
   changes.next();
   expect(service.list).toHaveBeenCalledOnce();
 });
@@ -323,6 +398,7 @@ it('notifies other tabs after a cover change and refreshes the playing metadata 
   component.selectedTrack.set(track);
   component.coverUpdated(updated);
   expect(sync.notifyChanged).toHaveBeenCalledOnce();
+  service.get.mockReturnValueOnce(of({ ...track, cover: null }));
   service.list.mockReturnValueOnce(of({ items: [{ ...track, cover: null }], page: 1, pages: 1, total: 1, limit: 5 }));
   changes.next();
   expect(component.selectedTrack()?.cover).toBeNull();

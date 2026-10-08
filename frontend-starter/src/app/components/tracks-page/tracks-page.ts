@@ -7,6 +7,7 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { finalize, Subscription } from 'rxjs';
 import { Track } from '../../shared/models/track.model';
 import { LibrarySyncService } from '../../shared/services/library-sync.service';
+import { PlayerService } from '../../shared/services/player.service';
 import { TrackService } from '../../shared/services/track.service';
 import { CoverPickerComponent } from '../cover-picker/cover-picker';
 import { TrackCoverComponent } from '../track-cover/track-cover';
@@ -25,17 +26,16 @@ export class TracksPageComponent {
   private readonly snackBar = inject(MatSnackBar);
   private readonly sync = inject(LibrarySyncService);
   private listRequest?: Subscription;
-  private audioRequest?: Subscription;
-  private selectedTrackRequest?: Subscription;
+  readonly player = inject(PlayerService);
   readonly tracks = signal<Track[]>([]);
   readonly page = signal(1);
   readonly pages = signal(1);
   readonly loading = signal(false);
   readonly error = signal('');
-  readonly audioUrl = signal('');
-  readonly selectedTrack = signal<Track | null>(null);
-  readonly audioLoading = signal(false);
-  readonly audioError = signal('');
+  readonly audioUrl = this.player.audioUrl;
+  readonly selectedTrack = this.player.selectedTrack;
+  readonly audioLoading = this.player.audioLoading;
+  readonly audioError = this.player.audioError;
   readonly uploading = signal(false);
   readonly uploadProgress = signal<number | null>(null);
   readonly uploadError = signal('');
@@ -49,7 +49,6 @@ export class TracksPageComponent {
   readonly title = new FormControl('', { nonNullable: true });
 
   constructor() {
-    this.destroyRef.onDestroy(() => this.releaseAudio());
     this.load();
     // Ajout ou suppression dans un autre onglet, ou retour sur cet onglet : la liste se met à jour seule.
     this.sync.changes.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.load({ silent: true }));
@@ -94,9 +93,8 @@ export class TracksPageComponent {
   coverUpdated(updated: Track): void {
     // A response started before this edit must not restore the old cover.
     this.listRequest?.unsubscribe();
-    this.selectedTrackRequest?.unsubscribe();
     this.tracks.update(tracks => tracks.map(track => track.id === updated.id ? updated : track));
-    if (this.selectedTrack()?.id === updated.id) this.selectedTrack.set(updated);
+    this.player.updateTrack(updated);
     this.sync.notifyChanged();
   }
 
@@ -106,7 +104,6 @@ export class TracksPageComponent {
    */
   load({ silent = false } = {}): void {
     this.listRequest?.unsubscribe();
-    this.selectedTrackRequest?.unsubscribe();
     if (!silent) {
       this.error.set('');
       this.loading.set(true);
@@ -124,12 +121,6 @@ export class TracksPageComponent {
         this.error.set('');
         this.tracks.set(response.items);
         this.pages.set(response.pages);
-        const selected = this.selectedTrack();
-        if (selected) {
-          const refreshed = response.items.find(track => track.id === selected.id);
-          if (refreshed) this.selectedTrack.set(refreshed);
-          else this.refreshSelectedTrack(selected.id);
-        }
         console.debug('[TracksPage] Pistes chargées', response.items.length);
       },
       error: (error: HttpErrorResponse) => {
@@ -141,24 +132,9 @@ export class TracksPageComponent {
   }
 
   refresh(): void {
+    const selected = this.selectedTrack();
+    if (selected) this.player.refreshSelectedTrack(selected.id);
     this.load();
-  }
-
-  private refreshSelectedTrack(id: string): void {
-    this.selectedTrackRequest = this.service.get(id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: track => {
-        if (this.selectedTrack()?.id === id) this.selectedTrack.set(track);
-      },
-      error: (error: HttpErrorResponse) => {
-        console.warn('[TracksPage] Actualisation du morceau en lecture', error.status);
-        if (error.status !== 404 || this.selectedTrack()?.id !== id) return;
-        this.audioRequest?.unsubscribe();
-        this.releaseAudio();
-        this.selectedTrack.set(null);
-        this.audioError.set('');
-        this.notify('Le morceau en lecture n’est plus disponible.');
-      },
-    });
   }
 
   go(page: number): void {
@@ -209,12 +185,6 @@ export class TracksPageComponent {
     });
   }
 
-  private releaseAudio(): void {
-    const url = this.audioUrl();
-    this.audioUrl.set('');
-    if (url) URL.revokeObjectURL(url);
-  }
-
   requestDelete(track: Track, dialog: HTMLDialogElement): void {
     if (this.deleting()) return;
     this.deleteTarget.set(track);
@@ -260,13 +230,7 @@ export class TracksPageComponent {
   }
 
   private removeFromScreen(track: Track, dialog: HTMLDialogElement, focusTarget: HTMLElement): void {
-    if (this.selectedTrack()?.id === track.id) {
-      this.selectedTrackRequest?.unsubscribe();
-      this.audioRequest?.unsubscribe();
-      this.releaseAudio();
-      this.selectedTrack.set(null);
-      this.audioError.set('');
-    }
+    if (this.selectedTrack()?.id === track.id) this.player.stop();
     this.deleteTarget.set(null);
     dialog.close();
     focusTarget.focus();
@@ -278,36 +242,7 @@ export class TracksPageComponent {
     this.snackBar.open(message, 'Fermer', { duration: 5000 });
   }
 
-  play(track: Track): void {
-    this.selectedTrackRequest?.unsubscribe();
-    this.audioRequest?.unsubscribe();
-    this.releaseAudio();
-    this.selectedTrack.set(track);
-    this.audioError.set('');
-    this.audioLoading.set(true);
-    this.audioRequest = this.service.audio(track.id).pipe(
-      takeUntilDestroyed(this.destroyRef), finalize(() => this.audioLoading.set(false)),
-    ).subscribe({
-      next: blob => {
-        if (!blob.size) {
-          this.audioError.set('Le fichier audio reçu est vide.');
-          return;
-        }
-        this.audioUrl.set(URL.createObjectURL(blob));
-        console.debug('[TracksPage] Audio chargé', track.id);
-      },
-      error: (error: HttpErrorResponse) => {
-        console.error('[TracksPage] Audio HTTP', error.status);
-        this.audioError.set(error.status === 404
-          ? 'Ce fichier audio est introuvable ou vous n’y avez pas accès.'
-          : 'Impossible de télécharger ce morceau. Vérifiez votre connexion et réessayez.');
-      },
-    });
-  }
-
-  playbackError(): void {
-    this.audioError.set('Le navigateur ne peut pas lire ce fichier. Il est peut-être endommagé ou son encodage n’est pas pris en charge.');
-  }
+  play(track: Track): void { this.player.play(track); }
 
   formatSize(bytes: number): string {
     return bytes < 1024 * 1024

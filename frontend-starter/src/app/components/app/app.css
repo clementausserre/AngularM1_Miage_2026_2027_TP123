@@ -1,36 +1,23 @@
-:host { display: block; }
-header { display: flex; align-items: center; flex-wrap: wrap; gap: 1.25rem 2rem; padding: 1.2rem 5vw; border-bottom: 1px solid #31594c; }
-.brand { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0.35rem 1rem; }
-.brand b { font-size: 1.2rem; line-height: 1.3; letter-spacing: -0.02em; }
-.brand small { color: #d1e5dc; opacity: 1; line-height: 1.5; }
-nav { display: flex; align-items: center; flex-wrap: wrap; gap: 0.6rem; margin: 0; }
-nav a, nav button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 44px;
-  padding: 0.65rem 1rem;
-  border: 1px solid #789b8d;
-  border-radius: 10px;
-  background: #204e40;
-  color: #fff;
-  font: inherit;
-  font-size: 0.95rem;
-  font-weight: 600;
-  line-height: 1.4;
-  text-decoration: none;
-  cursor: pointer;
-  transition: background-color 150ms, border-color 150ms;
-}
-nav a:hover, nav button:hover { background: #30634f; border-color: #c0d9cc; }
-nav a.active { background: #eaf3ee; border-color: #eaf3ee; color: #173d2f; }
-nav .logout-button { background: #472d2d; border-color: #bf8a83; color: #ffe4df; }
-nav .logout-button:hover { background: #653936; border-color: #efb0a7; }
-nav a:focus-visible, nav button:focus-visible { outline: 2px solid white; outline-offset: 4px; }
-@media (max-width: 720px) {
-  header { align-items: flex-start; }
-  nav { width: 100%; }
-  nav a, nav button { flex: 1 1 auto; }
+﻿:host { display: flex; flex-direction: column; min-height: 100dvh; }
+main { width: 100%; flex: 1; }
+header { display: flex; justify-content: space-between; align-items: center; gap: 1rem 2rem; min-height: 58px; padding: 6px max(1rem, calc((100% - 1070px) / 2)); background: #103d31; color: #f1f7f4; }
+.brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.brand-icon { display: flex; align-items: center; justify-content: center; flex-shrink: 0; width: 35px; height: 35px; border: 1px solid #98bbac; border-radius: 10px; background: #cee8db; color: #285748; }
+.brand-text { display: flex; flex-direction: column; min-width: 0; gap: 1px; }
+.brand b { font-size: 16px; line-height: 1.25; letter-spacing: -0.025em; }
+.brand small { color: #b6cec2; opacity: 1; font-size: 11px; line-height: 1.4; }
+nav { display: flex; align-items: center; gap: 5px; margin: 0; flex-shrink: 0; }
+nav a, nav button { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 16px; border: 0; border-radius: 999px; background: transparent; color: #d1e2d9; font: inherit; font-size: 12px; font-weight: 600; line-height: 1.4; text-decoration: none; cursor: pointer; transition: background-color 150ms, color 150ms; }
+nav a:hover, nav button:hover { background: #ffffff0d; color: white; }
+nav a.active { background: #eff7f2; color: #204b3d; box-shadow: inset 0 0 0 1px #b7d0c3; }
+nav .logout-button { position: relative; gap: 9px; margin-left: 12px; color: #e1c5b8; }
+nav .logout-button::before { content: ''; position: absolute; left: -6px; top: 12px; bottom: 12px; width: 1px; background: #ffffff12; }
+nav a:focus-visible, nav button:focus-visible { outline: 2px solid #cee8db; outline-offset: 3px; }
+@media (max-width: 650px) {
+  header { flex-wrap: wrap; gap: 8px; padding: 12px 16px; }
+  nav { width: 100%; flex-wrap: wrap; }
+  nav a, nav button { padding-inline: 12px; }
+  nav .logout-button { margin-left: auto; }
 }
 @media (prefers-reduced-motion: reduce) {
   nav a, nav button { transition: none; }

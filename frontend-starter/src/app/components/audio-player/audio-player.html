@@ -1,0 +1,28 @@
+<section class="player" [hidden]="!player.selectedTrack()" aria-label="Lecteur permanent">
+  @if (player.selectedTrack(); as current) {
+    <div class="player-identity">
+      <app-track-cover [trackId]="current.id" [version]="current.cover?.version ?? null" />
+      <div><strong>{{ current.title }}</strong><small>{{ current.originalName }}</small></div>
+    </div>
+  }
+  <div class="controls">
+    <audio #audio [attr.src]="player.audioUrl() || null" controls autoplay
+      [attr.aria-label]="'Lecteur : ' + (player.selectedTrack()?.title ?? '')"
+      (ended)="player.advance()"
+      (error)="player.audioUrl() && player.playbackError()"></audio>
+    <small>Enchaînement automatique dans l’ordre de la bibliothèque.</small>
+    @if (player.advancing()) { <small role="status">Recherche du morceau suivant…</small> }
+    @if (player.nextError()) {
+      <p role="alert">{{ player.nextError() }}</p>
+      <button type="button" (click)="player.advance()">Réessayer l’enchaînement</button>
+    }
+    @if (player.audioLoading()) { <small role="status">Téléchargement du morceau…</small> }
+    @if (player.audioError()) {
+      <p role="alert">{{ player.audioError() }}</p>
+      @if (player.selectedTrack(); as current) {
+        <button type="button" (click)="player.play(current)">Réessayer la lecture</button>
+      }
+    }
+  </div>
+  <button class="close" type="button" (click)="player.stop()" aria-label="Arrêter et fermer le lecteur">Fermer</button>
+</section>

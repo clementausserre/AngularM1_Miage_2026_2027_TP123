@@ -399,3 +399,34 @@ entre `storage` et `BroadcastChannel` ; pourquoi l'absence d'une piste dans une
 page paginée ne prouve pas sa suppression. Les apprentissages personnels et
 captures de rendu ne sont pas inventés par l'assistant.
 
+## TD4 — Lecteur permanent (8 octobre 2026)
+
+À la demande du binôme, extraction de la lecture de `TracksPageComponent`
+vers un service singleton `PlayerService`. Le composant `AudioPlayerComponent`
+est monté dans la structure principale, hors de la navigation. L'élément audio
+et son téléchargement survivent à la destruction d'une page. Les contrôles
+natifs sont conservés pour cette première étape ; aucune route backend ne change.
+
+La session change : le lecteur s'arrête. Le morceau change : la requête
+précédente est annulée et l'URL Blob libérée. Une pochette change : seules les
+métadonnées et l'image sont actualisées. Un morceau supprimé dans un autre
+onglet est détecté même depuis le profil.
+
+Validation : 113 tests frontend passent. Le scénario Chrome utilise désormais
+un WAV valide et vérifie lecture, navigation, pause, position, volume,
+synchronisation des pochettes et arrêt après suppression depuis le profil.
+La persistance du serveur de test est simulée, sans accès à Atlas.
+À expliquer : différence entre durée de vie d'une page et d'un service racine,
+propriété d'une URL Blob et conservation de l'élément audio entre les routes.
+### Complément — enchaînement automatique (8 octobre 2026)
+
+L'événement natif `ended` déclenche la recherche du morceau suivant dans
+l'ordre de la bibliothèque. Le service parcourt la pagination de l'API,
+puis télécharge uniquement le prochain audio. Il s'arrête en fin de liste.
+Un changement manuel de morceau ou la fermeture du lecteur annule la recherche
+en cours ; une erreur réseau affiche une action de nouvelle tentative.
+
+Validation : 117 tests frontend passent et la compilation réussit. Le scénario
+Chrome a vérifié la fin réelle d'un WAV puis le démarrage automatique du suivant
+depuis le profil, ainsi que l'arrêt après le dernier morceau. Serveur de test
+isolé avec persistance simulée ; aucune modification du backend.
