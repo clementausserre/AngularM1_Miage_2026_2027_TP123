@@ -31,6 +31,10 @@ export class TrackService {
     });
   }
 
+  get(id: string) {
+    return this.http.get<Track>(`/api/tracks/${id}`);
+  }
+
   delete(id: string) {
     return this.http.delete<void>(`/api/tracks/${id}`);
   }

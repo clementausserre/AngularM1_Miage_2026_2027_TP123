@@ -2,14 +2,14 @@ import '@angular/compiler';
 import { HttpErrorResponse, HttpRequest } from '@angular/common/http';
 import { Injector, runInInjectionContext, signal } from '@angular/core';
 import { Router } from '@angular/router';
-import { Subject } from 'rxjs';
+import { NEVER, Subject } from 'rxjs';
 import { expect, it, vi } from 'vitest';
 import { authInterceptor } from '../src/app/shared/interceptors/auth.interceptor';
 import { AuthService } from '../src/app/shared/services/auth.service';
 
 function setup(url: string, initialToken: string | null = 'expired-token') {
   const token = signal(initialToken);
-  const auth = { token, logout: vi.fn(() => token.set(null)) };
+  const auth = { token, externalSessionChanges: NEVER, logout: vi.fn(() => token.set(null)) };
   const router = {
     url: '/profile',
     currentNavigation: vi.fn<() => { finalUrl: { toString(): string } } | null>(() => null),

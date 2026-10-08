@@ -7,7 +7,7 @@
       required [attr.aria-invalid]="form.controls.name.invalid && form.controls.name.touched" aria-describedby="register-name-error" />
     <div id="register-name-error" aria-live="polite">
       @if (form.controls.name.invalid && form.controls.name.touched) {
-        <p class="error">Saisissez votre nom.</p>
+        <p class="error">Saisissez au moins 2 caractères, hors espaces au début et à la fin.</p>
       }
     </div>
     <label for="register-email">Email</label>
@@ -26,10 +26,10 @@
         [disabled]="pending()" [attr.aria-label]="passwordVisible() ? 'Masquer le mot de passe' : 'Afficher le mot de passe'"
         aria-controls="register-password">{{ passwordVisible() ? 'Masquer' : 'Afficher' }}</button>
     </div>
-    <small id="password-hint">Au moins 8 caractères.</small>
+    <small id="password-hint">Au moins 8 caractères, au maximum 72 octets UTF-8. Les accents et les emojis peuvent compter pour plusieurs octets.</small>
     <div id="register-password-error" aria-live="polite">
       @if (form.controls.password.invalid && form.controls.password.touched) {
-        <p class="error">{{ form.controls.password.hasError('required') ? 'Saisissez votre mot de passe.' : 'Le mot de passe doit contenir au moins 8 caractères.' }}</p>
+        <p class="error">{{ form.controls.password.hasError('required') ? 'Saisissez votre mot de passe.' : form.controls.password.hasError('tooLong') ? 'Le mot de passe dépasse 72 octets UTF-8.' : 'Le mot de passe doit contenir au moins 8 caractères.' }}</p>
       }
     </div>
     @if (error()) {

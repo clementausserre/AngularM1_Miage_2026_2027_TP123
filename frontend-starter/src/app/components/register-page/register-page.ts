@@ -6,6 +6,7 @@ import { finalize } from 'rxjs';
 import { AuthService } from '../../shared/services/auth.service';
 import { authErrorMessage } from '../../shared/utils/auth-error-message';
 import { authReturnUrl } from '../../shared/utils/auth-return-url';
+import { passwordByteLimit } from '../../shared/utils/password-validator';
 
 @Component({
   imports: [ReactiveFormsModule, RouterLink],
@@ -22,9 +23,10 @@ export class RegisterPageComponent {
   readonly error = signal('');
   readonly pending = signal(false);
   readonly form = new FormGroup({
-    name: new FormControl('', { nonNullable: true, validators: [Validators.required, Validators.pattern(/\S/)] }),
+    name: new FormControl('', { nonNullable: true, validators: [Validators.required,
+      control => typeof control.value === 'string' && control.value.trim().length >= 2 ? null : { minTrimmedLength: true }] }),
     email: new FormControl('', { nonNullable: true, validators: [Validators.required, Validators.email] }),
-    password: new FormControl('', { nonNullable: true, validators: [Validators.required, Validators.minLength(8)] }),
+    password: new FormControl('', { nonNullable: true, validators: [Validators.required, Validators.minLength(8), passwordByteLimit] }),
   });
 
   submit(formElement?: HTMLFormElement): void {

@@ -23,6 +23,9 @@ cp .env.example .env
 Renseigner dans `.env` l’URI MongoDB Atlas et le secret JWT. Ne jamais publier
 ce fichier ni copier un secret dans le code Angular.
 
+`JWT_SECRET` est obligatoire : le backend refuse de démarrer s'il est absent,
+vide ou égal à l'ancienne valeur de secours. Choisir un secret aléatoire privé.
+
 ```bash
 npm install
 npm start
@@ -81,3 +84,9 @@ un disque temporaire avec une persistance MongoDB simulée, sans toucher Atlas.
 Les tests frontend vérifient notamment le JWT, les aperçus et la révocation des
 URL temporaires. Dans le navigateur, vérifier dans Network le multipart
 `audio`/`title`/`cover` et les requêtes privées `/api/tracks/:id/cover`.
+
+Les modifications de couverture actualisent également le lecteur et les autres
+onglets. Un changement de compte ou une déconnexion dans un autre onglet provoque
+un rechargement complet pour effacer les données et la lecture de l'ancien compte.
+Les mots de passe créés ou modifiés sont limités à 72 octets UTF-8 (minimum 8
+caractères), avec la même validation dans le formulaire et l'API.

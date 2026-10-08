@@ -5,6 +5,7 @@ import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angula
 import { Router } from '@angular/router';
 import { finalize } from 'rxjs';
 import { AuthService } from '../../shared/services/auth.service';
+import { passwordByteLimit } from '../../shared/utils/password-validator';
 
 @Component({
   selector: 'app-password-form',
@@ -27,7 +28,7 @@ export class PasswordFormComponent {
   readonly form = new FormGroup({
     currentPassword: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
     newPassword: new FormControl('', { nonNullable: true, validators: [Validators.required, Validators.minLength(8),
-      control => new TextEncoder().encode(control.value as string).length <= 72 ? null : { tooLong: true }] }),
+      passwordByteLimit] }),
     confirmation: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
   }, { validators: control => {
     const { currentPassword, newPassword, confirmation } = control.getRawValue();

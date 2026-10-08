@@ -108,3 +108,24 @@ test("piste d'un autre utilisateur : 404 en lecture et en suppression, filtre su
   assert.equal((await removal.json()).message, 'Piste inconnue');
   assert.deepEqual(findOneAndDelete.mock.calls[0].arguments[0], { _id: foreignId, ownerId });
 });
+
+test('track metadata is authenticated, owner-scoped and excludes internal filenames', async t => {
+  const base = await startServer(t);
+  const track = new Track({ ownerId, title: 'Blues', originalName: 'test.mp3', storedName: 'private.mp3',
+    mimeType: 'audio/mpeg', size: 42, cover: { storedName: 'private.webp', mimeType: 'image/webp',
+      size: 42, width: 100, height: 100, version: 'version-1' } });
+  const find = t.mock.method(Track, 'findOne', filter => ({ select: async () => {
+    assert.deepEqual(filter, { _id: track.id, ownerId });
+    return track;
+  } }));
+  assert.equal((await fetch(`${base}/api/tracks/${track.id}`)).status, 401);
+  assert.equal(find.mock.callCount(), 0);
+  const response = await fetch(`${base}/api/tracks/${track.id}`, { headers: bearer });
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  assert.equal(body.cover.version, 'version-1');
+  assert.equal(body.cover.storedName, undefined);
+  assert.equal(body.storedName, undefined);
+  find.mock.mockImplementation(() => ({ select: async () => null }));
+  assert.equal((await fetch(`${base}/api/tracks/${track.id}`, { headers: bearer })).status, 404);
+});

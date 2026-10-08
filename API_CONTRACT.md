@@ -13,6 +13,7 @@ Le contrat HTTP ne dépend pas du choix de persistance : le backend fourni utili
 | PUT | `/users/me` | `{name}` + JWT | `200 User` |
 | PUT | `/users/me/password` | `{currentPassword, newPassword}` | `204` |
 | GET | `/tracks?page=1&limit=5` | JWT | `Page<Track>` |
+| GET | `/tracks/:id` | JWT | `200 Track` (métadonnées uniquement) |
 | POST | `/tracks` | multipart : `audio`, `title`, `cover` facultatif | `201 Track` |
 | GET | `/tracks/:id/audio` | JWT | flux audio |
 | GET | `/tracks/:id/cover` | JWT | image WebP |
@@ -23,6 +24,57 @@ Le contrat HTTP ne dépend pas du choix de persistance : le backend fourni utili
 `Page<Track>` contient `items`, `page`, `limit`, `total` et `pages`. Formats acceptés : MP3, WAV, OGG et M4A, 25 Mo maximum.
 
 Erreurs courantes : `400` validation, `401` authentification, `404` ressource, `409` email déjà utilisé.
+
+## Consolidation avant TD4 — 8 octobre 2026
+
+### Configuration JWT et inscription
+
+Le serveur exige un `JWT_SECRET` explicite et non vide ; l'ancienne valeur de
+secours `tp1-development-secret` est refusée. Le démarrage échoue avant l'ouverture
+du port si la configuration manque. Les tests fournissent leur propre secret
+aléatoire : aucun environnement n'utilise de secret de secours partagé.
+
+`POST /api/auth/register` reste public, sans paramètres d'URL ni de query,
+avec le corps JSON `{name,email,password}`. Les trois valeurs doivent être des
+chaînes. Le nom doit contenir au moins 2 caractères après suppression des espaces
+aux extrémités. L'email suit les règles de syntaxe de `Validators.email` d'Angular
+(254 caractères maximum, partie locale de 64 maximum) et est enregistré en
+minuscules. Le mot de passe contient au moins 8 unités UTF-16 et au plus 72 octets
+UTF-8, comme lors de son changement ; ses espaces sont conservés.
+
+Succès inchangé : `201 {token,user}`. Erreurs JSON `{message}` : `400` données
+invalides (avant accès à MongoDB et hachage), `409` email déjà utilisé, y compris
+deux inscriptions concurrentes, `500` erreur interne. Les mots de passe des
+comptes existants ne sont pas réécrits par cette correction.
+
+### Métadonnées d'un morceau
+
+`GET /api/tracks/:id` exige `Authorization: Bearer <token>`. Aucun corps ni query.
+`:id` désigne la piste du propriétaire identifié par le JWT. Réponse `200 Track`
+au même format public que la liste, incluant `cover`, sans octets audio/image et
+sans noms de stockage internes. Erreurs JSON `{message}` : `401` session invalide,
+`404` identifiant invalide, piste absente ou appartenant à un autre utilisateur,
+`500` erreur interne et `503` vérification de session indisponible.
+
+Cette lecture permet d'actualiser la couverture du lecteur quand le morceau
+n'est pas dans la page courante. Une mise à jour de métadonnées ne relance pas le
+téléchargement audio. Une réponse `404` arrête et libère le morceau devenu
+indisponible ; une erreur temporaire conserve la lecture.
+
+### Synchronisation côté navigateur
+
+Un changement de couverture réussi notifie les autres onglets via le même canal
+que les imports et suppressions. Un rechargement met aussi à jour les métadonnées
+du lecteur. Les onglets cachés rattrapent la modification lorsqu'ils redeviennent
+visibles ; il ne s'agit pas d'une synchronisation temps réel entre appareils.
+
+Un changement de token dans un autre onglet (connexion, déconnexion ou effacement
+du stockage) actualise le token local, efface le profil et annule les requêtes
+HttpClient en cours. L'onglet est ensuite rechargé sur son URL courante pour vider
+les données, formulaires et fichiers audio de l'ancien compte. Les guards
+réévaluent l'accès ; sans token, l'utilisateur revient à la connexion. Une simple
+modification de bibliothèque ne recharge pas la page entière. Le token n'est
+jamais transmis dans le canal de synchronisation de bibliothèque.
 
 ## TP2 — Couvertures des morceaux
 

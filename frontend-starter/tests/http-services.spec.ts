@@ -66,6 +66,16 @@ it('TrackService.list() sends GET /api/tracks with page and limit', () => {
   expect(onPage).toHaveBeenCalledWith(page);
 });
 
+it('TrackService.get() fetches only the metadata of the selected track', () => {
+  const { http, tracks } = setup();
+  const received = vi.fn();
+  tracks.get('abc').subscribe(received);
+  const request = http.expectOne('/api/tracks/abc');
+  expect(request.request.method).toBe('GET');
+  request.flush(track);
+  expect(received).toHaveBeenCalledWith(track);
+});
+
 it('TrackService.delete() sends DELETE /api/tracks/:id', () => {
   const { http, tracks } = setup();
   const onDone = vi.fn();

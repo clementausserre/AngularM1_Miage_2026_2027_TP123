@@ -361,3 +361,41 @@ Le backend, l’API et `API_CONTRACT.md` sont inchangés.
 - `npm test` backend : 16 tests réussis ;
 - `npm run build` : réussi.
 
+### Consolidation avant TD4 — 8 octobre 2026
+
+**Demande.** Corriger les quatre points relevés pendant la revue avant de
+développer le lecteur permanent, les playlists et le partage entre amis.
+
+**Changements.** Le backend refuse le démarrage sans secret JWT explicite et
+rejette l'ancienne valeur de secours. Les tests fournissent un secret aléatoire.
+L'inscription contrôle les types, le nom, l'email et la limite de 72 octets UTF-8
+du mot de passe avant tout accès à MongoDB ou hachage. Le frontend partage le
+validateur de taille entre inscription et changement de mot de passe.
+
+`AuthService` observe les changements de session dans le stockage et au retour
+sur un onglet visible. Une session externe différente efface le profil et
+annule les requêtes en cours avant de recharger l'onglet. Ce choix simple assure
+la suppression des données, des formulaires et de l'audio de l'ancien compte ;
+les guards réévaluent ensuite l'accès à l'URL courante. Un ancien événement de
+stockage ne doit jamais rétablir un token déjà remplacé.
+
+Les changements de couverture avertissent maintenant les autres onglets. Le
+lecteur reprend les métadonnées de la liste ou utilise la nouvelle route privée
+`GET /api/tracks/:id` lorsque le morceau est hors de la page courante. L'audio
+n'est pas téléchargé à nouveau. Une piste disparue arrête le lecteur, tandis
+qu'une erreur réseau temporaire conserve la lecture. Le contrat API et le README
+ont été mis à jour. Aucun secret ni compte Atlas n'a été modifié.
+
+**Vérifications observées.** 110 tests frontend, 19 tests backend, compilation
+Angular réussie. Test navigateur automatisé avec deux onglets Chrome et serveur
+isolé réussi : couvertures synchronisées, requêtes multipart et JWT vérifiés,
+anciennes données effacées au changement de compte, déconnexion propagée. La
+persistance est simulée ; les preuves avec Atlas restent à compléter par le
+binôme. Détails dans `TP3-Rendu/Rapport_Tests.md`, section 8.
+
+**À expliquer par chacun.** Pourquoi bcrypt limite les octets et non les
+caractères ; pourquoi le serveur doit refuser un secret absent ; différence
+entre `storage` et `BroadcastChannel` ; pourquoi l'absence d'une piste dans une
+page paginée ne prouve pas sa suppression. Les apprentissages personnels et
+captures de rendu ne sont pas inventés par l'assistant.
+

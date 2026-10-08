@@ -1,6 +1,6 @@
 import '@angular/compiler';
 import { HttpClient } from '@angular/common/http';
-import { Injector, runInInjectionContext } from '@angular/core';
+import { DOCUMENT, Injector, runInInjectionContext } from '@angular/core';
 import { ActivatedRouteSnapshot, Router, RouterStateSnapshot } from '@angular/router';
 import { afterEach, expect, it, vi } from 'vitest';
 import { AppComponent } from '../src/app/components/app/app';
@@ -25,6 +25,7 @@ function setup(token: string | null) {
   };
   const injector = Injector.create({ providers: [
     AuthService,
+    { provide: DOCUMENT, useValue: { defaultView: null } },
     { provide: HttpClient, useValue: {} },
     { provide: Router, useValue: router },
   ] });

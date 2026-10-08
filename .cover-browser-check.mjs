@@ -18,7 +18,10 @@ const { User } = await fromBackend('src/models/User.js');
 const ownerId = 'aaaaaaaaaaaaaaaaaaaaaaaa';
 const tracks = new Map();
 const user = { sessionVersion: 0, toPublic: () => ({ id: ownerId, name: 'Browser Test', email: 'browser@example.test' }) };
-User.findById = () => ({ select: async () => user, then: (resolve, reject) => Promise.resolve(user).then(resolve, reject) });
+User.findById = id => {
+  const selected = { ...user, toPublic: () => ({ ...user.toPublic(), id: String(id) }) };
+  return { select: async () => selected, then: (resolve, reject) => Promise.resolve(selected).then(resolve, reject) };
+};
 Track.create = async fields => { const track = new Track({ ...fields, createdAt: new Date() }); await track.validate(); tracks.set(track.id, track); return track; };
 const owned = filter => { const track = tracks.get(String(filter._id)); return track && String(track.ownerId) === filter.ownerId ? track : null; };
 Track.findOne = filter => ({ select: async () => { const track = owned(filter); return track ? new Track(track.toObject()) : null; } });
@@ -28,11 +31,12 @@ Track.findOneAndUpdate = async (filter, update) => {
   track.cover = update.$set.cover; return track;
 };
 Track.findOneAndDelete = filter => ({ select: async () => { const track = owned(filter); if (track) tracks.delete(track.id); return track; } });
-Track.find = () => {
-  const query = { sort: () => query, skip: () => query, limit: () => query, select: () => query, lean: async () => [...tracks.values()].map(track => track.toObject()) };
+Track.find = filter => {
+  const query = { sort: () => query, skip: () => query, limit: () => query, select: () => query,
+    lean: async () => [...tracks.values()].filter(track => String(track.ownerId) === filter.ownerId).map(track => track.toObject()) };
   return query;
 };
-Track.countDocuments = async () => tracks.size;
+Track.countDocuments = async filter => [...tracks.values()].filter(track => String(track.ownerId) === filter.ownerId).length;
 const app = createApp();
 const dist = path.join(root, 'frontend-starter/dist/gpc/browser');
 app.use(express.static(dist));
@@ -46,6 +50,7 @@ const browser = spawn('C:/Program Files/Google/Chrome/Application/chrome.exe', [
   '--no-first-run', '--no-default-browser-check', 'about:blank',
 ], { windowsHide: true, stdio: 'ignore' });
 let ws;
+let secondSocket;
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 async function waitFor(fn, message) {
   for (let i = 0; i < 150; i++) { if (await fn()) return; await delay(100); }
@@ -84,9 +89,10 @@ try {
   };
   const clickText = text => evaluate(`(() => { const button = [...document.querySelectorAll('button')].find(b => b.textContent.trim() === ${JSON.stringify(text)}); if (!button || button.disabled) throw new Error('Button unavailable'); button.click(); })()`);
   await call('Network.enable'); await call('Runtime.enable'); await call('Page.enable');
-  await call('Page.addScriptToEvaluateOnNewDocument', { source: `localStorage.setItem('gpc_token', ${JSON.stringify(token)});` });
+  const initialSession = await call('Page.addScriptToEvaluateOnNewDocument', { source: `localStorage.setItem('gpc_token', ${JSON.stringify(token)});` });
   await call('Page.navigate', { url: origin + '/tracks' });
   await waitFor(() => evaluate(`!!document.querySelector('#track-file')`), 'Import form absent');
+  await call('Page.removeScriptToEvaluateOnNewDocument', { identifier: initialSession.identifier });
   await evaluate(`(() => {
     window.selectCover = (selector, color) => {
       const canvas = document.createElement('canvas'); canvas.width = 1200; canvas.height = 900;
@@ -104,11 +110,40 @@ try {
   await clickText('Importer le morceau');
   await waitFor(() => evaluate(`document.querySelector('.track-card app-track-cover img')?.naturalWidth === 800`), 'Saved cover absent');
   assert.equal(await evaluate(`document.querySelector('#import-cover').files.length`), 0);
+  // A second real browser tab observes BroadcastChannel and storage events.
+  const secondTarget = await call('Target.createTarget', { url: origin + '/tracks' });
+  const targets = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();
+  secondSocket = new WebSocket(targets.find(page => page.id === secondTarget.targetId).webSocketDebuggerUrl);
+  await new Promise(resolve => secondSocket.addEventListener('open', resolve, { once: true }));
+  let secondSequence = 0;
+  const secondPending = new Map();
+  secondSocket.addEventListener('message', event => {
+    const message = JSON.parse(event.data);
+    if (!message.id) return;
+    const callback = secondPending.get(message.id); secondPending.delete(message.id);
+    if (message.error) callback.reject(new Error(message.error.message)); else callback.resolve(message.result);
+  });
+  const secondCall = (method, params = {}) => new Promise((resolve, reject) => {
+    const id = ++secondSequence; secondPending.set(id, { resolve, reject });
+    secondSocket.send(JSON.stringify({ id, method, params }));
+  });
+  const secondEvaluate = async expression => {
+    const response = await secondCall('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true, userGesture: true });
+    if (response.exceptionDetails) throw new Error(response.exceptionDetails.exception?.description ?? response.exceptionDetails.text);
+    return response.result?.value;
+  };
+  await waitFor(() => secondEvaluate(`!!document.querySelector('.track-card app-track-cover img')?.naturalWidth`), 'Second tab cover absent');
+  await secondEvaluate(`[...document.querySelectorAll('button')].find(b => b.textContent.trim() === 'Lire le morceau').click()`);
+  await waitFor(() => secondEvaluate(`!!document.querySelector('.player-identity app-track-cover img')?.naturalWidth && !!document.querySelector('audio')`), 'Second tab player absent');
+  const initialPlayerCover = await secondEvaluate(`document.querySelector('.player-identity img').src`);
+  const initialAudio = await secondEvaluate(`document.querySelector('audio').src`);
   await clickText('Modifier la couverture');
   await waitFor(() => evaluate(`!!document.querySelector('app-cover-editor input')`), 'Editor absent');
   await evaluate(`window.selectCover('app-cover-editor input', '#624b98')`);
   await clickText('Enregistrer');
   await waitFor(() => evaluate(`document.querySelector('app-cover-editor').textContent.includes('Couverture enregistrée.')`), 'Replacement failed');
+  await waitFor(() => secondEvaluate(`document.querySelector('.player-identity img')?.src !== ${JSON.stringify(initialPlayerCover)} && !!document.querySelector('.player-identity img')?.naturalWidth`), 'Playing cover did not synchronize');
+  assert.equal(await secondEvaluate(`document.querySelector('audio').src`), initialAudio, 'Cover refresh restarted audio');
   await clickText('Modifier la couverture');
   await clickText('Retirer la couverture');
   await waitFor(() => evaluate(`document.querySelector('.track-card app-track-cover').textContent.includes('Sans couverture')`), 'Removal failed');
@@ -128,10 +163,20 @@ try {
   assert.ok(network.some(req => req.method === 'PUT' && req.multipart && req.authorized));
   assert.ok(network.some(req => req.method === 'DELETE' && req.url.endsWith('/cover') && req.authorized));
   assert.deepEqual(errors, []);
-  console.log('BROWSER PASS: preview, import, normalized authenticated image, replace, remove, re-add, mobile layout, delete. Network JWT and multipart verified.');
+  // Track data for the old account must disappear after a session switch.
+  await Track.create({ ownerId, title: 'Old account private track', originalName: 'test.mp3', storedName: 'not-requested.mp3', mimeType: 'audio/mpeg', size: 1 });
+  await clickText('Actualiser');
+  await waitFor(() => evaluate(`!!document.querySelector('.track-card')`), 'Old account test data absent');
+  const newToken = jwt.sign({ sub: 'bbbbbbbbbbbbbbbbbbbbbbbb', sessionVersion: 0 }, process.env.JWT_SECRET);
+  await secondEvaluate(`localStorage.setItem('gpc_token', ${JSON.stringify(newToken)})`);
+  await waitFor(() => evaluate(`!!document.querySelector('.empty') && !document.querySelector('.track-card') && !document.querySelector('audio')`), 'Old account data survived session switch');
+  await secondEvaluate(`localStorage.removeItem('gpc_token')`);
+  await waitFor(() => evaluate(`location.pathname === '/login' && !!document.querySelector('#login-email')`), 'Other-tab logout did not redirect');
+  console.log('BROWSER PASS: uploads and private image requests, cover synchronization without audio reload, account switch clears private data, other-tab logout redirects.');
   await call('Browser.close');
 } finally {
   ws?.close();
+  secondSocket?.close();
   browser.kill();
   server.closeAllConnections();
   await new Promise(resolve => server.close(resolve));

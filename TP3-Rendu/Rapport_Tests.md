@@ -96,3 +96,35 @@ Non réalisées : le backend ne pouvait pas se connecter à MongoDB Atlas, car l
 - [ ] Capture d'une requête `DELETE /api/tracks/:id` → 204 après confirmation (masquer le token)
 - [ ] Capture de l'upload `POST /api/tracks` (multipart) et de la barre de progression
 - [ ] Console : aucune erreur inattendue, aucun mot de passe ni JWT affiché
+
+## 8. Corrections de la revue avant TD4 — 8 octobre 2026
+
+Résultats exécutés après correction : **110 tests frontend dans 11 fichiers,
+19 tests backend, tous réussis ; compilation Angular réussie**.
+
+| Vérification ajoutée | Résultat observé |
+|---|---|
+| Configuration JWT absente, vide ou ancienne valeur de secours | Refus explicite, y compris en environnement de test ; les suites utilisent des secrets aléatoires |
+| Inscription : types invalides, nom trop court, email invalide, mot de passe > 72 octets | `400` avant MongoDB et avant hachage |
+| Limite exacte avec ASCII, accents et emojis | 72 octets acceptés ; dépassement refusé ; espaces du mot de passe conservés |
+| Email déjà utilisé, y compris conflit d'index concurrent | `409` |
+| Session changée ou supprimée dans un autre onglet | Profil vidé, requêtes en cours annulées, nouvel état de session adopté puis rechargement |
+| Événement storage obsolète, clé sans rapport et retour sur un onglet caché | Valeur courante utilisée ; préférences sans rapport ignorées ; rattrapage au retour |
+| Réponse de profil reçue après déconnexion | Ancien utilisateur non restauré |
+| Couverture modifiée ou retirée | Notification des autres onglets et actualisation du lecteur sans requête audio supplémentaire |
+| Morceau en lecture hors de la page affichée | Lecture de ses seules métadonnées via `GET /api/tracks/:id` |
+| Morceau devenu inaccessible | `404` : arrêt et libération du lecteur ; erreur temporaire : lecture conservée |
+| Métadonnées HTTP | JWT et propriétaire contrôlés ; noms internes de fichiers jamais retournés |
+
+Vérification navigateur automatisée supplémentaire avec
+`node .cover-browser-check.mjs` : **réussie** sur Chrome sans fenêtre, avec deux
+onglets, un serveur Express temporaire et MongoDB simulé. Vérification des requêtes
+multipart authentifiées, modification/suppression de couverture, mise à jour de
+la couverture du lecteur sans changement de son URL audio, séparation des données
+lors d'un changement de compte et redirection après déconnexion dans l'autre
+onglet. Le fichier audio est une fixture synthétique ; cet essai ne valide pas
+la qualité de lecture d'un véritable morceau. Les fichiers temporaires sont
+nettoyés à la fin.
+
+Ces résultats ne remplacent pas les captures Network avec Atlas ni les
+explications personnelles encore demandées dans la section 7.

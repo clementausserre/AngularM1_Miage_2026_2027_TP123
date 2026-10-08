@@ -1,7 +1,7 @@
 import { inject } from '@angular/core';
 import { HttpErrorResponse, HttpInterceptorFn } from '@angular/common/http';
 import { Router } from '@angular/router';
-import { catchError, throwError } from 'rxjs';
+import { catchError, takeUntil, throwError } from 'rxjs';
 import { AuthService } from '../services/auth.service';
 import { authReturnUrl } from '../utils/auth-return-url';
 
@@ -22,7 +22,7 @@ export const authInterceptor: HttpInterceptorFn = (request, next) => {
           setHeaders: { Authorization: `Bearer ${token}` },
         })
       : request,
-  ).pipe(catchError((error: unknown) => {
+  ).pipe(takeUntil(auth.externalSessionChanges), catchError((error: unknown) => {
     // Ignore late failures belonging to a session that has already changed.
     if (error instanceof HttpErrorResponse && error.status === 401
       && isProtectedApi && auth.token() === token) {

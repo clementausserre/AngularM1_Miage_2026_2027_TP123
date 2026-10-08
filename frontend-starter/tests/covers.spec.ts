@@ -2,7 +2,7 @@ import { HttpErrorResponse, provideHttpClient, withInterceptors } from '@angular
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
-import { Subject } from 'rxjs';
+import { NEVER, Subject } from 'rxjs';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { TrackCoverComponent } from '../src/app/components/track-cover/track-cover';
 import { CoverPickerComponent } from '../src/app/components/cover-picker/cover-picker';
@@ -27,7 +27,7 @@ afterEach(() => { TestBed.resetTestingModule(); vi.unstubAllGlobals(); vi.restor
 
 it('loads images with JWT and releases URLs on version change and destruction', () => {
   TestBed.configureTestingModule({ providers: [provideHttpClient(withInterceptors([authInterceptor])),
-    provideHttpClientTesting(), { provide: AuthService, useValue: { token: () => 'credential' } },
+    provideHttpClientTesting(), { provide: AuthService, useValue: { token: () => 'credential', externalSessionChanges: NEVER } },
     { provide: Router, useValue: {} }] });
   const http = TestBed.inject(HttpTestingController);
   const fixture = TestBed.createComponent(TrackCoverComponent);

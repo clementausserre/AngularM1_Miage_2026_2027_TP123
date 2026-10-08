@@ -1,9 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import mongoose from "mongoose";
-import { createApp } from "../src/app.js";
+import crypto from 'node:crypto';
 import { User } from "../src/models/User.js";
 import { Track } from "../src/models/Track.js";
+
+process.env.JWT_SECRET = crypto.randomBytes(32).toString('hex');
+const { createApp } = await import('../src/app.js');
 
 let server, base;
 

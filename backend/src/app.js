@@ -8,9 +8,11 @@ import { Track, publicTrack } from "./models/Track.js";
 import { UPLOADS, COVERS, removeFiles } from "./middleware/track-upload.js";
 import { registerCoverRoutes } from "./routes/track-covers.js";
 import { validatePasswordChange } from './middleware/validate-password-change.js';
+import { validateRegistration } from './middleware/validate-registration.js';
+import { readJwtSecret } from './config/jwt-secret.js';
 
 // Ce secret reste côté serveur. Il ne doit jamais être copié dans Angular.
-const SECRET = process.env.JWT_SECRET || "tp1-development-secret";
+const SECRET = readJwtSecret();
 
 /**
  * Crée un jeton JWT contenant uniquement l'identité nécessaire à l'API.
@@ -99,17 +101,10 @@ export function createApp() {
    * @param {Object} res - La réponse HTTP.
    * @param {Function} next - La fonction de middleware suivante.
    */
-  app.post("/api/auth/register", async (req, res, next) => {
+  app.post("/api/auth/register", validateRegistration, async (req, res, next) => {
     try {
       const { name, email, password } = req.body || {};
       console.log(`[auth] Tentative d'inscription pour ${email || "email absent"}`);
-
-      if (!name || !email || !password || password.length < 8) {
-        console.warn("[auth] Inscription refusée : données invalides ou incomplètes");
-        return res.status(400).json({
-          message: "Nom, email et mot de passe de 8 caractères requis",
-        });
-      }
 
       // Vérifie si l'email est déjà utilisé avant de créer un nouvel utilisateur.
       if (await User.exists({ email: String(email).toLowerCase() })) {
@@ -123,7 +118,8 @@ export function createApp() {
       console.log(`[auth] Utilisateur créé : ${user.id}`);
       res.status(201).json({ token: token(user), user: user.toPublic() });
     } catch (error) {
-      console.error("[auth] Erreur pendant l'inscription", error);
+      console.error("[auth] Erreur pendant l'inscription", { name: error.name, code: error.code });
+      if (error.code === 11000) return res.status(409).json({ message: 'Email déjà utilisé' });
       next(error);
     }
   });
@@ -278,6 +274,18 @@ export function createApp() {
   });
 
   registerCoverRoutes(app, auth);
+
+  /** Metadata for the playing track, including when it is outside the current page. */
+  app.get('/api/tracks/:id', auth, async (req, res, next) => {
+    try {
+      const track = await Track.findOne({ _id: req.params.id, ownerId: req.auth.sub }).select('-storedName -cover.storedName');
+      if (!track) return res.status(404).json({ message: 'Piste inconnue' });
+      res.json(publicTrack(track));
+    } catch (error) {
+      console.error('[tracks] Lecture des métadonnées impossible', { name: error.name });
+      next(error);
+    }
+  });
 
   /** Envoie le contenu binaire d'une piste après vérification de sa propriété. */
   app.get("/api/tracks/:id/audio", auth, async (req, res, next) => {

@@ -87,6 +87,22 @@ for (const Component of [LoginPageComponent, RegisterPageComponent]) {
     });
 
     if (Component === RegisterPageComponent) {
+      it('enforces the UTF-8 password boundary and trimmed name before registration', () => {
+        const { component, request } = setup();
+        const register = component as RegisterPageComponent;
+        for (const password of ['x'.repeat(73), 'é'.repeat(37), '😀'.repeat(19)]) {
+          register.form.setValue({ name: 'Test', email: 'test@example.com', password });
+          register.submit();
+          expect(register.form.controls.password.hasError('tooLong')).toBe(true);
+        }
+        register.form.setValue({ name: ' A ', email: 'test@example.com', password: 'valid-password' });
+        register.submit();
+        expect(register.form.controls.name.invalid).toBe(true);
+        expect(request).not.toHaveBeenCalled();
+        register.form.setValue({ name: 'Test', email: 'test@example.com', password: 'é'.repeat(36) });
+        register.submit();
+        expect(request).toHaveBeenCalledOnce();
+      });
       it('rejects whitespace-only names and passwords shorter than eight characters', () => {
         const { component, request } = setup();
         const register = component as RegisterPageComponent;

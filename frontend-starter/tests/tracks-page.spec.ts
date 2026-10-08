@@ -18,6 +18,7 @@ function setup() {
   const audios: Subject<Blob>[] = [];
   const service = {
     list: vi.fn(() => of({ items: [track], page: 1, pages: 2, total: 6, limit: 5 })),
+    get: vi.fn((_id: string) => of(track)),
     upload: vi.fn((_file: File, _title: string, _cover?: File | null) => upload),
     delete: vi.fn(() => deletion),
     audio: vi.fn(() => { const response = new Subject<Blob>(); audios.push(response); return response; }),
@@ -314,4 +315,54 @@ it('stops listening to the other tabs when the page is destroyed', () => {
   injector.destroy(); cleanups.pop();
   changes.next();
   expect(service.list).toHaveBeenCalledOnce();
+});
+
+it('notifies other tabs after a cover change and refreshes the playing metadata without downloading audio', () => {
+  const { component, service, sync, changes } = setup();
+  const updated = { ...track, cover: { version: 'new', mimeType: 'image/webp', width: 800, height: 600, size: 42 } };
+  component.selectedTrack.set(track);
+  component.coverUpdated(updated);
+  expect(sync.notifyChanged).toHaveBeenCalledOnce();
+  service.list.mockReturnValueOnce(of({ items: [{ ...track, cover: null }], page: 1, pages: 1, total: 1, limit: 5 }));
+  changes.next();
+  expect(component.selectedTrack()?.cover).toBeNull();
+  expect(service.audio).not.toHaveBeenCalled();
+  expect(sync.notifyChanged).toHaveBeenCalledOnce();
+});
+
+it('refreshes a playing track outside the current page, and ignores a response after a new selection', () => {
+  const { component, service, changes } = setup();
+  const metadata = new Subject<Track>();
+  service.get.mockReturnValueOnce(metadata);
+  const selected = { ...track, id: 'outside-page' };
+  component.selectedTrack.set(selected);
+  component.audioUrl.set('blob:playing');
+  changes.next();
+  expect(service.get).toHaveBeenCalledWith('outside-page');
+  const updated = { ...selected, cover: { version: 'new', mimeType: 'image/webp', width: 800, height: 600, size: 42 } };
+  metadata.next(updated); metadata.complete();
+  expect(component.selectedTrack()).toEqual(updated);
+  expect(component.audioUrl()).toBe('blob:playing');
+  expect(service.audio).not.toHaveBeenCalled();
+  const late = new Subject<Track>(); service.get.mockReturnValueOnce(late);
+  changes.next();
+  component.play(track);
+  late.next(updated);
+  expect(component.selectedTrack()).toEqual(track);
+});
+
+it('stops a deleted playing track but keeps it after a transient metadata failure', () => {
+  const { component, service, changes, snackBar } = setup();
+  component.selectedTrack.set({ ...track, id: 'outside-page' });
+  component.audioUrl.set('blob:playing');
+  const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+  service.get.mockReturnValueOnce(throwError(() => new HttpErrorResponse({ status: 503 })));
+  changes.next();
+  expect(component.audioUrl()).toBe('blob:playing');
+  service.get.mockReturnValueOnce(throwError(() => new HttpErrorResponse({ status: 404 })));
+  changes.next();
+  expect(component.selectedTrack()).toBeNull();
+  expect(component.audioUrl()).toBe('');
+  expect(revoke).toHaveBeenCalledWith('blob:playing');
+  expect(snackBar.open).toHaveBeenCalledOnce();
 });
