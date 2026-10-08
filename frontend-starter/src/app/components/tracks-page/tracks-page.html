@@ -3,6 +3,10 @@
     <p class="eyebrow">MA BIBLIOTHÈQUE</p>
     <h1 id="library-title">Mes morceaux</h1>
     <p class="intro">Importez vos accompagnements et retrouvez le plaisir de jouer.</p>
+    <svg class="heading-wave" width="228" height="68" viewBox="0 0 228 68" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" aria-hidden="true" focusable="false">
+      <path d="M5 31v6 M15 24v20 M25 16v36 M35 27v14 M45 10v48 M55 20v28 M65 29v10 M75 17v34 M85 5v58 M95 22v24 M105 31v6 M115 18v32 M125 12v44 M135 26v16 M145 18v32 M155 30v8 M165 23v22 M175 14v40 M185 27v14 M195 21v26 M205 30v8" />
+      <circle cx="220" cy="34" r="2.5" fill="currentColor" stroke="none" />
+    </svg>
   </div>
   <div class="library-layout">
     <aside class="card import-panel" aria-labelledby="import-title">
@@ -13,8 +17,14 @@
         <input id="track-title" [formControl]="title" placeholder="Ex. Blues en La" />
         <small>Sans titre, le nom du fichier sera utilisé.</small>
         <label for="track-file">Fichier audio</label>
-        <input #fileInput id="track-file" type="file" accept=".mp3,.wav,.ogg,.m4a,audio/mpeg,audio/wav,audio/x-wav,audio/ogg,audio/mp4,audio/x-m4a"
-          (change)="choose($event)" [disabled]="uploading()" aria-describedby="file-help upload-error" />
+        <div class="audio-picker">
+          <input #fileInput id="track-file" type="file" accept=".mp3,.wav,.ogg,.m4a,audio/mpeg,audio/wav,audio/x-wav,audio/ogg,audio/mp4,audio/x-m4a"
+            (change)="choose($event)" [disabled]="uploading()" aria-describedby="file-help upload-error" />
+          <div class="picker-presentation" aria-hidden="true">
+            <span class="upload-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4m-4 4 4-4 4 4M5 14v6h14v-6" /></svg></span>
+            <strong>Choisir un fichier</strong><small>{{ file()?.name || 'Aucun fichier sélectionné' }}</small>
+          </div>
+        </div>
         <small id="file-help">MP3, WAV, OGG ou M4A · 25 Mo maximum</small>
         @if (file(); as selected) {
           <p class="file-summary">{{ selected.name }} <span>{{ formatSize(selected.size) }}</span></p>
@@ -58,22 +68,39 @@
           <div class="track-grid">
             @for (track of tracks(); track track.id) {
               <article class="card track-card" [class.selected]="selectedTrack()?.id === track.id">
-                <app-track-cover [trackId]="track.id" [version]="track.cover?.version ?? null" />
-                <div class="track-top"><span class="format">{{ format(track) }}</span>
+                <div class="track-main">
+                  <app-track-cover [trackId]="track.id" [version]="track.cover?.version ?? null" />
+                  <h3>{{ track.title }}</h3>
+                  <p class="filename" [title]="track.originalName">{{ track.originalName }}</p>
                   @if (selectedTrack()?.id === track.id) { <span class="selected-label">Dans le lecteur</span> }
+                  <button class="play-area" type="button" (click)="play(track)"
+                    [disabled]="audioLoading() && selectedTrack()?.id === track.id" [attr.aria-label]="'Lire ' + track.title">
+                    <span class="visually-hidden">{{ audioLoading() && selectedTrack()?.id === track.id ? 'Chargement…' : 'Lire le morceau' }}</span>
+                    <span class="play-icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="m8 5 11 7-11 7z" /></svg></span>
+                  </button>
+                </div>
+                <div class="track-actions">
+                  <details class="track-details">
+                    <summary [attr.aria-label]="'Détails de ' + track.title">Détails</summary>
+                    <dl>
+                      <div><dt>Titre</dt><dd>{{ track.title }}</dd></div>
+                      <div><dt>Fichier</dt><dd>{{ track.originalName }}</dd></div>
+                      <div><dt>Format</dt><dd>{{ format(track) }}</dd></div>
+                      <div><dt>Type MIME</dt><dd>{{ track.mimeType }}</dd></div>
+                      <div><dt>Taille</dt><dd>{{ formatSize(track.size) }}</dd></div>
+                      <div><dt>Ajouté le</dt><dd>{{ formatDate(track.createdAt) }}</dd></div>
+                      @if (track.cover; as cover) {
+                        <div><dt>Couverture</dt><dd>{{ cover.width }} × {{ cover.height }} px · {{ formatSize(cover.size) }}</dd></div>
+                      }
+                    </dl>
+                  </details>
                   <button class="delete-button" type="button" (click)="requestDelete(track, deleteDialog)"
                     [disabled]="deleting()" [attr.aria-label]="'Supprimer ' + track.title" title="Supprimer le morceau">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
                       <path d="M3 6h18M9 6V4h6v2M5 6l1 14h12l1-14M10 10v6M14 10v6" />
                     </svg>
                   </button>
                 </div>
-                <h3>{{ track.title }}</h3>
-                <p class="filename">{{ track.originalName }}</p>
-                <dl><div><dt>Taille</dt><dd>{{ formatSize(track.size) }}</dd></div>
-                  <div><dt>Ajouté le</dt><dd>{{ formatDate(track.createdAt) }}</dd></div></dl>
-                <button type="button" (click)="play(track)" [disabled]="audioLoading() && selectedTrack()?.id === track.id"
-                  [attr.aria-label]="'Lire ' + track.title">{{ audioLoading() && selectedTrack()?.id === track.id ? 'Chargement…' : 'Lire le morceau' }}</button>
                 <app-cover-editor [track]="track" [disabled]="deleting()" (updated)="coverUpdated($event)" />
               </article>
             } @empty {

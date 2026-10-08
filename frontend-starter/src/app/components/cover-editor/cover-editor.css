@@ -7,3 +7,4 @@ button:focus-visible { outline: 2px solid #1d755e; outline-offset: 3px; }
 p { line-height: 1.5; font-size: 0.9rem; }
 .error { color: #962b27; }
 .success { color: #205b3b; }
+button { border-color: #dce6e1; border-radius: 10px; font-size: 12px; font-weight: 600; padding: 8px; }

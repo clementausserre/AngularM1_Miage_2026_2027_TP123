@@ -117,6 +117,23 @@ try {
   await clickText('Importer le morceau');
   await waitFor(() => evaluate(`document.querySelector('.track-card app-track-cover img')?.naturalWidth === 800`), 'Saved cover absent');
   assert.equal(await evaluate(`document.querySelector('#import-cover').files.length`), 0);
+  await evaluate(`document.querySelector('.track-details summary').click()`);
+  assert.equal(await evaluate(`document.querySelector('.track-details').open && document.querySelector('.track-details').textContent.includes('audio/wav') && !document.querySelector('audio').getAttribute('src')`), true, 'Details missing or unexpectedly started playback');
+  await evaluate(`document.querySelector('.track-details summary').click()`);
+  await call('Emulation.setDeviceMetricsOverride', { width: 1280, height: 900, deviceScaleFactor: 1, mobile: false });
+  assert.equal(await evaluate(`getComputedStyle(document.querySelector('.track-grid')).gridTemplateColumns.split(' ').length`), 3, 'Desktop grid must have three columns');
+  const titlePoint = await evaluate(`(() => { const r = document.querySelector('.track-main h3').getBoundingClientRect(); return { x: r.x + 10, y: r.y + r.height / 2 }; })()`);
+  await call('Input.dispatchMouseEvent', { type: 'mouseMoved', ...titlePoint });
+  await delay(200);
+  assert.equal(await evaluate(`getComputedStyle(document.querySelector('.play-icon')).opacity`), '1', 'Hover did not reveal play');
+  await call('Input.dispatchMouseEvent', { type: 'mousePressed', ...titlePoint, button: 'left', clickCount: 1 });
+  await call('Input.dispatchMouseEvent', { type: 'mouseReleased', ...titlePoint, button: 'left', clickCount: 1 });
+  await waitFor(() => evaluate(`!!document.querySelector('audio').getAttribute('src')`), 'Clicking title did not start playback');
+  if (process.env.GPC_SCREENSHOT_PATH) {
+    const screenshot = await call('Page.captureScreenshot', { format: 'png' });
+    await fs.writeFile(process.env.GPC_SCREENSHOT_PATH, Buffer.from(screenshot.data, 'base64'));
+  }
+  await evaluate(`document.querySelector('app-audio-player .close').click()`);
   // A second real browser tab observes BroadcastChannel and storage events.
   const secondTarget = await call('Target.createTarget', { url: origin + '/tracks' });
   const targets = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();

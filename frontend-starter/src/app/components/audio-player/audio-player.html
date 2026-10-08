@@ -10,7 +10,7 @@
       [attr.aria-label]="'Lecteur : ' + (player.selectedTrack()?.title ?? '')"
       (ended)="player.advance()"
       (error)="player.audioUrl() && player.playbackError()"></audio>
-    <small>Enchaînement automatique dans l’ordre de la bibliothèque.</small>
+    <small class="queue-hint"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 10V6h15m-4-4 4 4-4 4M20 14v4H5m4-4-4 4 4 4" /></svg><span>Enchaînement automatique dans l’ordre de la bibliothèque.</span></small>
     @if (player.advancing()) { <small role="status">Recherche du morceau suivant…</small> }
     @if (player.nextError()) {
       <p role="alert">{{ player.nextError() }}</p>
@@ -24,5 +24,5 @@
       }
     }
   </div>
-  <button class="close" type="button" (click)="player.stop()" aria-label="Arrêter et fermer le lecteur">Fermer</button>
+  <button class="close" type="button" (click)="player.stop()" aria-label="Arrêter et fermer le lecteur"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true" focusable="false"><path d="m6 6 12 12M6 18 18 6" /></svg>Fermer</button>
 </section>

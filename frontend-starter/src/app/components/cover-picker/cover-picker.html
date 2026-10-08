@@ -1,6 +1,12 @@
 <label [for]="inputId()">Image de couverture <span>(facultatif)</span></label>
+<div class="image-picker">
 <input #fileInput [id]="inputId()" type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
   [disabled]="disabled()" (change)="choose($event)" [attr.aria-describedby]="inputId() + '-help ' + inputId() + '-error'" />
+  <div class="picker-label" aria-hidden="true">
+    <span class="image-icon"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2" /><circle cx="9" cy="9" r="1.5" /><path d="m5 18 6-6 3 3 3-5 3 4" /></svg></span>
+    <span><strong>Choisir une image</strong><small>{{ filename() || 'Aucune image sélectionnée' }}</small></span>
+  </div>
+</div>
 <small [id]="inputId() + '-help'">JPEG, PNG ou WebP non animé · 5 Mo et 16 millions de pixels maximum. Utilisez une image dont vous avez les droits.</small>
 @if (preview()) {
   <img [src]="preview()" alt="Aperçu de la couverture sélectionnée" width="160" height="160" (error)="previewFailed()" />

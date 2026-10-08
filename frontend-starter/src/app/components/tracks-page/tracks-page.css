@@ -1,8 +1,14 @@
 ﻿:host { display: block; }
-.page-heading { margin-bottom: 1.5rem; padding: 1.2rem 1.5rem; border-radius: 16px; color: white; background: linear-gradient(115deg, #123d32, #276c57); }
-.page-heading .eyebrow { color: #d1e9dc; margin-bottom: 0.3rem; }
-.page-heading h1 { font-size: clamp(1.5rem, 4vw, 1.9rem); }
-.page-heading .intro { color: #e0eee7; margin-top: 0.35rem; }
+.page-heading { position: relative; margin-bottom: 1.5rem; min-height: 156px; padding: 28px 280px 28px 34px; border-radius: 22px; color: #f7fbf8; background: #174d3e; }
+.page-heading .eyebrow { color: #b9d6c7; margin: 0 0 8px; font-size: 11px; line-height: 1.4; letter-spacing: .14em; }
+.page-heading h1 { font-size: clamp(1.9rem, 4vw, 2.5rem); line-height: 1.15; letter-spacing: -.045em; font-weight: 750; }
+.page-heading .intro { color: #d0e3d8; margin: 9px 0 0; font-size: 14px; line-height: 1.5; }
+.heading-wave { position: absolute; right: 34px; top: 50%; transform: translateY(-25%); width: 228px; height: 68px; color: #80b29a; opacity: .8; pointer-events: none; }
+@media (max-width: 720px) {
+  .page-heading { padding: 26px 24px; }
+  .page-heading .intro { max-width: 38ch; }
+  .heading-wave { display: none; }
+}
 .eyebrow { margin: 0 0 0.5rem; color: #1d755e; font-weight: 700; }
 h1 { margin: 0; font-size: clamp(1.8rem, 5vw, 2.4rem); }
 h2 { font-size: 1.2rem; margin: 0; }
@@ -59,3 +65,53 @@ dt { color: #52685f; } dd { margin: 0; }
 .pager { flex-wrap: wrap; }
 @media (max-width: 850px) { .library-layout { grid-template-columns: 1fr; } }
 @media (max-width: 480px) { .track-grid { grid-template-columns: 1fr; } .list-heading { flex-wrap: wrap; } .pager { gap: 0.5rem; } .pager button { padding: 0.6rem; } }
+/* Compact library cards with a keyboard-accessible playback surface. */
+.library-layout { grid-template-columns: 258px minmax(0, 1fr); gap: 24px; }
+.import-panel { padding: 24px; border: 1px solid #e1ebe7; border-radius: 18px; box-shadow: none; }
+.import-panel h2 { font-size: 18px; letter-spacing: -.03em; }
+.import-panel .description { font-size: 13px; }
+.import-panel label { display: block; font-size: 13px; }
+.import-panel small { font-size: 11px; }
+.import-panel input { background: #fafcfb; border-color: #dce6e1; border-radius: 11px; font-size: 13px; }
+.import-panel button { font-size: 13px; font-weight: 600; border-radius: 12px; }
+.audio-picker { position: relative; border: 1px dashed #cfdfd6; border-radius: 13px; background: #f6faf8; }
+.audio-picker input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.audio-picker:focus-within { outline: 2px solid #1d755e; outline-offset: 3px; }
+.audio-picker:has(input:disabled) { opacity: .55; }
+.picker-presentation { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 20px 12px; text-align: center; pointer-events: none; }
+.picker-presentation strong { color: #28745d; font-size: 13px; }
+.picker-presentation small { max-width: 100%; overflow-wrap: anywhere; }
+.upload-icon { display: grid; place-items: center; width: 38px; height: 38px; background: #dceee4; border-radius: 11px; color: #34816a; }
+.list-heading { min-height: 44px; margin-bottom: 16px; }
+.list-heading h2 { font-size: 20px; letter-spacing: -.025em; }
+.list-heading button { border-radius: 999px; font-size: 12px; font-weight: 600; border-color: #dce6e1; }
+.track-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: start; gap: 16px; }
+.track-card { padding: 10px; border: 1px solid #e1ebe7; border-radius: 18px; box-shadow: none; transition: transform 160ms, box-shadow 160ms, border-color 160ms; }
+.track-card.selected { border-color: #38886f; box-shadow: 0 0 0 1px #38886f; }
+.track-card:focus-within { border-color: #38886f; }
+.track-main { position: relative; padding-bottom: 7px; }
+.track-main h3 { margin: 12px 4px 2px; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.track-main .filename { margin: 0 4px; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.selected-label { display: inline-block; margin: 6px 4px 0; padding: 3px 8px; background: #dfede5; border-radius: 999px; font-size: 10px; font-weight: 600; }
+.play-area { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; padding: 0; border: 0; background: transparent; border-radius: 12px; }
+.play-icon { position: absolute; right: 10px; top: 10px; display: grid; place-items: center; width: 42px; height: 42px; color: white; background: #1d755e; border-radius: 50%; box-shadow: 0 4px 12px #17312a35; transition: opacity 160ms, transform 160ms; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.track-actions { display: flex; align-items: flex-start; gap: 6px; }
+.track-details { flex: 1; min-width: 0; }
+.track-details summary { display: flex; align-items: center; justify-content: center; min-height: 44px; padding: 8px; border: 1px solid #dce6e1; border-radius: 10px; cursor: pointer; color: #245d4c; font-size: 12px; font-weight: 600; }
+.track-details summary::before { content: '+'; margin-right: 6px; }
+.track-details[open] summary::before { content: '−'; }
+.track-details summary:focus-visible { outline: 2px solid #1d755e; outline-offset: 2px; }
+.track-details dl { font-size: 11px; }
+.track-details dl div { display: block; }
+.track-details dd { overflow-wrap: anywhere; margin-top: 3px; }
+.delete-button { border-radius: 10px; margin: 0; background: white; }
+@media (hover: hover) and (pointer: fine) {
+  .play-icon { opacity: 0; transform: translateY(4px); }
+  .track-card:hover { transform: translateY(-4px); box-shadow: 0 10px 24px #17312a12; border-color: #83b49f; }
+  .track-card:hover .play-icon, .track-card:focus-within .play-icon, .track-card.selected .play-icon { opacity: 1; transform: none; }
+}
+@media (max-width: 1000px) { .track-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 850px) { .library-layout { grid-template-columns: 1fr; } }
+@media (max-width: 480px) { .track-grid { grid-template-columns: 1fr; } }
+@media (prefers-reduced-motion: reduce) { .track-card, .play-icon { transition: none; } .track-card:hover { transform: none; } }
