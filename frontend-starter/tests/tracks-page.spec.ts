@@ -9,6 +9,7 @@ import { LibrarySyncService } from '../src/app/shared/services/library-sync.serv
 import { PlayerService } from '../src/app/shared/services/player.service';
 import { TrackService } from '../src/app/shared/services/track.service';
 import { Track } from '../src/app/shared/models/track.model';
+import { Playlist } from '../src/app/shared/models/playlist.model';
 
 const track: Track = { id: '1', title: 'Blues', originalName: 'blues.mp3', mimeType: 'audio/mpeg', size: 2048, createdAt: '2026-09-18T10:00:00Z' };
 const cleanups: Array<() => void> = [];
@@ -203,6 +204,39 @@ it('formats bytes into readable units', () => {
 function deletionDialog() {
   return { showModal: vi.fn(), close: vi.fn() } as unknown as HTMLDialogElement;
 }
+
+it('plays a playlist snapshot in its own order, stops at its end and can return to library playback', () => {
+  const { player, service, audios } = setup();
+  const second = { ...track, id: '2' };
+  const playlist: Playlist = { id: 'p', name: 'Mix', version: 0, createdAt: '', updatedAt: '', trackCount: 2, preview: second, tracks: [second, track] };
+  player.playPlaylist(playlist);
+  expect(player.selectedTrack()).toEqual(second);
+  audios[0].complete();
+  playlist.tracks.reverse(); // Editing the page's data does not change the active queue.
+  player.advance();
+  expect(player.selectedTrack()).toEqual(track);
+  audios[1].complete();
+  player.advance();
+  expect(service.audio).toHaveBeenCalledTimes(2);
+  expect(service.list).toHaveBeenCalledOnce(); // Page load only; playlist never falls back to library.
+  player.play(second);
+  expect(player.playlist()).toBeNull();
+  player.stop(); expect(player.selectedTrack()).toBeNull();
+});
+
+it('skips a missing playlist track and keeps playlist context after a retry', async () => {
+  const { player, audios } = setup();
+  const second = { ...track, id: '2' };
+  player.playPlaylist({ id: 'p', name: 'Mix', version: 0, createdAt: '', updatedAt: '', trackCount: 2, preview: track, tracks: [track, second] });
+  audios[0].error(new HttpErrorResponse({ status: 404 }));
+  await Promise.resolve();
+  expect(player.selectedTrack()?.id).toBe('2');
+  audios[1].error(new HttpErrorResponse({ status: 500 }));
+  player.retry();
+  expect(player.playlist()?.id).toBe('p');
+  expect(player.selectedTrack()?.id).toBe('2');
+  expect(audios).toHaveLength(3);
+});
 
 it('continues with the next library page after the track ends, and stops at the last track', () => {
   const { player, service } = setup();

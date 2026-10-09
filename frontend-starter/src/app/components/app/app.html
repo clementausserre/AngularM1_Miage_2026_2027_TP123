@@ -14,6 +14,7 @@
   <nav aria-label="Navigation principale">
     @if (auth.token()) {
       <a routerLink="/tracks" routerLinkActive="active" ariaCurrentWhenActive="page">Backing tracks</a>
+      <a routerLink="/playlists" routerLinkActive="active" ariaCurrentWhenActive="page">Playlists</a>
       <app-friends-nav />
       <a routerLink="/profile" routerLinkActive="active" ariaCurrentWhenActive="page">Profil</a>
       <button class="logout-button" type="button" (click)="logout()">

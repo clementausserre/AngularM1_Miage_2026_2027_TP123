@@ -12,11 +12,12 @@ import { TrackService } from '../../shared/services/track.service';
 import { CoverPickerComponent } from '../cover-picker/cover-picker';
 import { TrackCoverComponent } from '../track-cover/track-cover';
 import { CoverEditorComponent } from '../cover-editor/cover-editor';
+import { AddToPlaylistComponent } from '../add-to-playlist/add-to-playlist';
 import { coverFileError } from '../../shared/utils/cover-file';
 import { uploadErrorMessage } from '../../shared/utils/upload-error-message';
 
 @Component({
-  imports: [ReactiveFormsModule, CoverPickerComponent, TrackCoverComponent, CoverEditorComponent],
+  imports: [ReactiveFormsModule, CoverPickerComponent, TrackCoverComponent, CoverEditorComponent, AddToPlaylistComponent],
   templateUrl: './tracks-page.html',
   styleUrl: './tracks-page.css',
 })

@@ -6,6 +6,7 @@ import { EMPTY, Subscription, expand, finalize, reduce } from 'rxjs';
 import { Track } from '../models/track.model';
 import { TrackService } from './track.service';
 import { LibrarySyncService } from './library-sync.service';
+import { Playlist } from '../models/playlist.model';
 
 /** Owns the authenticated audio download independently of routed pages. */
 @Injectable({ providedIn: 'root' })
@@ -27,11 +28,33 @@ export class PlayerService {
   readonly audioError = signal('');
   readonly advancing = signal(false);
   readonly nextError = signal('');
+  readonly playlist = signal<{ id: string; name: string } | null>(null);
+  private queue: Track[] = [];
+  private selection = 0;
+
+  playPlaylist(playlist: Playlist, index = 0): void {
+    const track = playlist.tracks[index];
+    if (!track) return;
+    this.queue = [...playlist.tracks];
+    this.playlist.set({ id: playlist.id, name: playlist.name });
+    this.loadTrack(track);
+  }
+
+  retry(): void {
+    const track = this.selectedTrack();
+    if (track) this.loadTrack(track);
+  }
 
   /** Resolve library order, including tracks outside the currently displayed page. */
   advance(): void {
     const current = this.selectedTrack();
     if (!current || this.advancing() || this.audioLoading()) return;
+    if (this.playlist()) {
+      const index = this.queue.findIndex(track => track.id === current.id);
+      const next = index >= 0 ? this.queue[index + 1] : undefined;
+      if (next) this.loadTrack(next);
+      return;
+    }
     this.nextError.set('');
     this.advancing.set(true);
     this.nextRequest = this.service.list(1).pipe(
@@ -62,6 +85,9 @@ export class PlayerService {
   attach(element: HTMLAudioElement): void { this.element = element; }
 
   stop(): void {
+    this.selection++;
+    this.queue = [];
+    this.playlist.set(null);
     this.nextRequest?.unsubscribe();
     this.nextError.set('');
     this.selectedTrackRequest?.unsubscribe();
@@ -95,16 +121,20 @@ export class PlayerService {
       error: (error: HttpErrorResponse) => {
         console.warn('[Player] Actualisation du morceau en lecture', error.status);
         if (error.status !== 404 || this.selectedTrack()?.id !== id) return;
-        this.audioRequest?.unsubscribe();
-        this.releaseAudio();
-        this.selectedTrack.set(null);
-        this.audioError.set('');
+        this.stop();
         this.notify('Le morceau en lecture n’est plus disponible.');
       },
     });
   }
 
   play(track: Track): void {
+    this.queue = [];
+    this.playlist.set(null);
+    this.loadTrack(track);
+  }
+
+  private loadTrack(track: Track): void {
+    const selection = ++this.selection;
     this.nextRequest?.unsubscribe();
     this.nextError.set('');
     if (this.selectedTrack()?.id === track.id && this.audioUrl() && !this.audioError()) {
@@ -131,6 +161,12 @@ export class PlayerService {
       },
       error: (error: HttpErrorResponse) => {
         console.error('[Player] Audio HTTP', error.status);
+        if (error.status === 404 && this.playlist()) {
+          // Wait for finalize before advancing so an old request cannot clear the next loading state.
+          queueMicrotask(() => {
+            if (this.selection === selection && this.selectedTrack()?.id === track.id && this.playlist()) this.advance();
+          });
+        }
         this.audioError.set(error.status === 404
           ? 'Ce fichier audio est introuvable ou vous n’y avez pas accès.'
           : 'Impossible de télécharger ce morceau. Vérifiez votre connexion et réessayez.');

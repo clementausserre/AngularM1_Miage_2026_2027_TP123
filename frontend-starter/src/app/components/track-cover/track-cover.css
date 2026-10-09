@@ -6,3 +6,5 @@ img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .cover { background: #dcece3; border-radius: 12px; color: #447963; }
 .note { max-width: 55%; max-height: 55%; flex-shrink: 0; }
 .caption { font-size: 11px; }
+.compact .caption { display: none; }
+.compact .note { width: 24px; height: 24px; }

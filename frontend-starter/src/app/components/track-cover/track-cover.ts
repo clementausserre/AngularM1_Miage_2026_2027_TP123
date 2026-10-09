@@ -8,6 +8,7 @@ import { TrackService } from '../../shared/services/track.service';
   styleUrl: './track-cover.css',
 })
 export class TrackCoverComponent {
+  readonly compact = input(false);
   private readonly service = inject(TrackService);
   readonly trackId = input.required<string>();
   readonly version = input<string | null>(null);

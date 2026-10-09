@@ -102,6 +102,7 @@
                   </button>
                 </div>
                 <app-cover-editor [track]="track" [disabled]="deleting()" (updated)="coverUpdated($event)" />
+                <app-add-to-playlist [track]="track" />
               </article>
             } @empty {
               <div class="card empty"><h3>Votre bibliothèque vous attend</h3><p>Importez votre premier morceau pour commencer à jouer.</p></div>

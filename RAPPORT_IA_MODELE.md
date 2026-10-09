@@ -467,3 +467,36 @@ index uniques sur `userId`, `code` et `pair` présents. Aucun compte ou lien de
 test n'a été créé dans cette base. Le parcours complet avec deux utilisateurs
 reste couvert par les tests simulés ; cette vérification réelle porte sur la
 connexion, les collections, les index et les documents déjà présents.
+## TD4 — Playlists personnelles (9 octobre 2026)
+
+À la demande du binôme : création, renommage, suppression, ajout depuis la
+bibliothèque, retrait et réordonnancement des morceaux, puis lecture continue
+dans l'ordre de la playlist. L'interface reprend les couleurs et cartes
+existantes, avec confirmations de suppression et commandes clavier/mobile.
+
+Le modèle Mongoose Playlist stocke ownerId, name, trackIds ordonnés, version
+et dates. Les routes Express filtrent systématiquement sur le propriétaire,
+vérifient aussi la propriété des morceaux et empêchent les écritures concurrentes
+avec une comparaison de version. Un retrait ou une suppression de playlist
+ne supprime jamais les fichiers audio. Les références de morceaux disparus sont
+filtrées à la lecture. Le contrat API décrit les limites et cas de concurrence.
+
+Angular utilise PlaylistService et deux nouveaux composants (page et ajout).
+PlayerService conserve une copie de la file au lancement ; l'événement ended
+passe au suivant, sans retour à la bibliothèque à la fin de la playlist.
+Les erreurs 404 d'audio peuvent être sautées, et une nouvelle sélection ou
+déconnexion annule le contexte précédent.
+
+La commande `npm run db:playlists` a préparé et vérifié la collection et son
+index dans la vraie base configurée, sans ajouter de compte, piste ou playlist
+de test. Les tests HTTP et navigateur utilisent une persistance simulée ; ils
+ne constituent pas une preuve de parcours complet sur Atlas. À expliquer :
+références plutôt que duplication des fichiers, ordre d'un tableau, contrôle
+de propriété, version d'édition et différence entre playlist stockée et file
+de lecture déjà lancée.
+
+Validation finale : 131 tests frontend et 23 tests backend passent. Le parcours
+Chrome vérifie création depuis la bibliothèque, ajout de deux WAV, changement
+d'ordre, renommage, lecture dans l'ordre choisi pendant une navigation vers le
+profil, arrêt en fin de playlist, retrait et suppression sans effacer les pistes.
+Affichage mobile et non-régression des amis, couvertures et sessions vérifiés.

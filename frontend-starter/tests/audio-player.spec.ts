@@ -10,7 +10,7 @@ afterEach(() => TestBed.resetTestingModule());
 it.each([null, 'another-session'])('stops the player when the session becomes %s', next => {
   const token = signal<string | null>('initial-session');
   const player = {
-    selectedTrack: signal(null), audioUrl: signal(''), audioLoading: signal(false),
+    selectedTrack: signal(null), playlist: signal(null), audioUrl: signal(''), audioLoading: signal(false),
     audioError: signal(''), advancing: signal(false), nextError: signal(''), advance: vi.fn(), attach: vi.fn(), stop: vi.fn(),
   };
   TestBed.configureTestingModule({ providers: [

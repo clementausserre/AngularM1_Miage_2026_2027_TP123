@@ -1,7 +1,7 @@
 <section class="player" [hidden]="!player.selectedTrack()" aria-label="Lecteur permanent">
   @if (player.selectedTrack(); as current) {
     <div class="player-identity">
-      <app-track-cover [trackId]="current.id" [version]="current.cover?.version ?? null" />
+      <app-track-cover [trackId]="current.id" [version]="current.cover?.version ?? null" [compact]="true" />
       <div><strong>{{ current.title }}</strong><small>{{ current.originalName }}</small></div>
     </div>
   }
@@ -10,7 +10,7 @@
       [attr.aria-label]="'Lecteur : ' + (player.selectedTrack()?.title ?? '')"
       (ended)="player.advance()"
       (error)="player.audioUrl() && player.playbackError()"></audio>
-    <small class="queue-hint"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 10V6h15m-4-4 4 4-4 4M20 14v4H5m4-4-4 4 4 4" /></svg><span>Enchaînement automatique dans l’ordre de la bibliothèque.</span></small>
+    <small class="queue-hint"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 10V6h15m-4-4 4 4-4 4M20 14v4H5m4-4-4 4 4 4" /></svg><span>{{ player.playlist() ? 'Playlist : ' + player.playlist()?.name : 'Enchaînement automatique dans l’ordre de la bibliothèque.' }}</span></small>
     @if (player.advancing()) { <small role="status">Recherche du morceau suivant…</small> }
     @if (player.nextError()) {
       <p role="alert">{{ player.nextError() }}</p>
@@ -20,7 +20,7 @@
     @if (player.audioError()) {
       <p role="alert">{{ player.audioError() }}</p>
       @if (player.selectedTrack(); as current) {
-        <button type="button" (click)="player.play(current)">Réessayer la lecture</button>
+        <button type="button" (click)="player.retry()">Réessayer la lecture</button>
       }
     }
   </div>

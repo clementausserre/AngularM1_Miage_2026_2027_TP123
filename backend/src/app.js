@@ -11,6 +11,7 @@ import { validatePasswordChange } from './middleware/validate-password-change.js
 import { validateRegistration } from './middleware/validate-registration.js';
 import { readJwtSecret } from './config/jwt-secret.js';
 import { friendsRouter } from './routes/friends.js';
+import { playlistsRouter } from './routes/playlists.js';
 
 // Ce secret reste côté serveur. Il ne doit jamais être copié dans Angular.
 const SECRET = readJwtSecret();
@@ -90,6 +91,7 @@ export function createApp() {
   // Il est placé avant les routes pour que toutes les requêtes JSON soient traitées.
   app.use(express.json());
   app.use('/api/friends', friendsRouter(auth));
+  app.use('/api/playlists', playlistsRouter(auth));
 
   /** Endpoint public utilisé pour vérifier que l'API répond. */
   app.get("/api/health", (_req, res) => {

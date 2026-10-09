@@ -18,6 +18,9 @@ const { User } = await fromBackend('src/models/User.js');
 const { FriendCode } = await fromBackend('src/models/FriendCode.js');
 const { Friendship } = await fromBackend('src/models/Friendship.js');
 const { installFriendsStore } = await fromBackend('test-support/friends-store.js');
+const { Playlist } = await fromBackend('src/models/Playlist.js');
+const { installPlaylistsStore } = await fromBackend('test-support/playlists-store.js');
+const playlistRows = installPlaylistsStore(Playlist);
 const ownerId = 'aaaaaaaaaaaaaaaaaaaaaaaa';
 const tracks = new Map();
 const friendUsers = new Map([ownerId, 'bbbbbbbbbbbbbbbbbbbbbbbb'].map(id => [id,
@@ -31,7 +34,11 @@ User.findById = id => {
 };
 Track.create = async fields => { const track = new Track({ ...fields, createdAt: new Date() }); await track.validate(); tracks.set(track.id, track); return track; };
 const owned = filter => { const track = tracks.get(String(filter._id)); return track && String(track.ownerId) === filter.ownerId ? track : null; };
-Track.findOne = filter => ({ select: async () => { const track = owned(filter); return track ? new Track(track.toObject()) : null; } });
+Track.findOne = filter => {
+  const get = () => { const track = owned(filter); return track ? new Track(track.toObject()) : null; };
+  const query = { select: () => query, lean: async () => get()?.toObject() ?? null, then: (yes, no) => Promise.resolve(get()).then(yes, no) };
+  return query;
+};
 Track.findOneAndUpdate = async (filter, update) => {
   const track = owned(filter);
   if (!track || (filter['cover.version'] && filter['cover.version'] !== track.cover?.version)) return null;
@@ -40,10 +47,10 @@ Track.findOneAndUpdate = async (filter, update) => {
 Track.findOneAndDelete = filter => ({ select: async () => { const track = owned(filter); if (track) tracks.delete(track.id); return track; } });
 Track.find = filter => {
   const query = { sort: () => query, skip: () => query, limit: () => query, select: () => query,
-    lean: async () => [...tracks.values()].filter(track => String(track.ownerId) === filter.ownerId).map(track => track.toObject()) };
+    lean: async () => [...tracks.values()].filter(track => String(track.ownerId) === String(filter.ownerId) && (!filter._id?.$in || filter._id.$in.map(String).includes(track.id))).map(track => track.toObject()) };
   return query;
 };
-Track.countDocuments = async filter => [...tracks.values()].filter(track => String(track.ownerId) === filter.ownerId).length;
+Track.countDocuments = async filter => [...tracks.values()].filter(track => String(track.ownerId) === String(filter.ownerId) && (!filter._id?.$in || filter._id.$in.map(String).includes(track.id))).length;
 const app = createApp();
 const dist = path.join(root, 'frontend-starter/dist/gpc/browser');
 app.use(express.static(dist));
@@ -230,12 +237,68 @@ try {
   await waitFor(() => secondEvaluate(`playingElement.ended`), 'Last track did not end');
   await delay(300);
   assert.equal(await secondEvaluate(`playingElement.src`), followingAudio, 'Last track unexpectedly looped');
+  // Create/add from the library, reorder/rename in the UI and play in playlist order.
+  await call('Page.bringToFront');
+  await clickText('+ Ajouter à une playlist');
+  await waitFor(() => evaluate(`!!document.querySelector('app-add-to-playlist dialog[open]') && !document.querySelector('app-add-to-playlist dialog[open]').textContent.includes('Chargement')`), 'Playlist picker absent');
+  await evaluate(`(() => { const input = document.querySelector('app-add-to-playlist dialog[open] input'); input.value = 'Browser mix'; input.dispatchEvent(new Event('input', { bubbles: true })); })()`);
+  await clickText('Créer la playlist');
+  await waitFor(() => evaluate(`!!document.querySelector('app-add-to-playlist .choices button')`), 'Created playlist absent');
+  await evaluate(`document.querySelector('app-add-to-playlist .choices button').click()`);
+  await waitFor(() => evaluate(`!document.querySelector('app-add-to-playlist dialog[open]')`), 'Add did not finish');
+  const playlistId = [...playlistRows.keys()][0];
+  const addSecond = await fetch(origin + `/api/playlists/${playlistId}/tracks`, { method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ trackId: followingTrack.id }) });
+  assert.equal(addSecond.status, 200);
+  await evaluate(`[...document.querySelectorAll('a')].find(a => a.textContent.trim() === 'Playlists').click()`);
+  await waitFor(() => evaluate(`!!document.querySelector('.playlist-card a')`), 'Playlist grid absent');
+  await evaluate(`document.querySelector('.playlist-card a').click()`);
+  await waitFor(() => evaluate(`document.querySelectorAll('.track-list .track-play').length === 2`), 'Playlist details absent');
+  await evaluate(`document.querySelector('button[title="Descendre"]').click()`);
+  await waitFor(() => evaluate(`document.querySelector('.track-identity strong')?.textContent === 'Following WAV'`), 'Playlist reorder failed');
+  await clickText('Renommer');
+  await evaluate(`(() => { const input = document.querySelector('#playlist-name'); input.value = 'Evening mix'; input.dispatchEvent(new Event('input', { bubbles: true })); })()`);
+  await clickText('Enregistrer');
+  await waitFor(() => evaluate(`document.querySelector('#playlists-title')?.textContent === 'Evening mix'`), 'Playlist rename failed');
+  if (process.env.GPC_PLAYLIST_SCREENSHOT_PATH) {
+    const shot = await call('Page.captureScreenshot', { format: 'png' });
+    await fs.writeFile(process.env.GPC_PLAYLIST_SCREENSHOT_PATH, Buffer.from(shot.data, 'base64'));
+  }
+  await clickText('▶ Tout lire');
+  try {
+    await waitFor(() => evaluate(`document.querySelector('.player-identity strong')?.textContent === 'Following WAV' && document.querySelector('audio').readyState >= 2`), 'Playlist play failed');
+  } catch (error) {
+    console.log('Playlist player diagnostic', await evaluate(`({ title: document.querySelector('.player-identity strong')?.textContent, state: document.querySelector('audio')?.readyState, source: document.querySelector('audio')?.getAttribute('src'), errors: [...document.querySelectorAll('[role="alert"]')].map(el => el.textContent) })`), errors);
+    throw error;
+  }
+  await evaluate(`(async () => { window.playlistAudio = document.querySelector('audio'); await playlistAudio.play(); [...document.querySelectorAll('a')].find(a => a.textContent.trim() === 'Profil').click(); playlistAudio.currentTime = playlistAudio.duration - .15; })()`);
+  await waitFor(() => evaluate(`document.querySelector('.player-identity strong')?.textContent === 'Browser cover test' && !playlistAudio.paused && playlistAudio.currentTime > 0`), 'Playlist did not advance in saved order across navigation');
+  assert.equal(await evaluate(`document.querySelector('.queue-hint').textContent.includes('Evening mix')`), true);
+  await evaluate(`playlistAudio.currentTime = playlistAudio.duration - .15`);
+  await waitFor(() => evaluate(`playlistAudio.ended`), 'Playlist last track did not end');
+  await delay(250);
+  assert.equal(await evaluate(`document.querySelector('.player-identity strong').textContent`), 'Browser cover test', 'Playlist fell back to library order');
+  await evaluate(`[...document.querySelectorAll('a')].find(a => a.textContent.trim() === 'Playlists').click()`);
+  await waitFor(() => evaluate(`!!document.querySelector('.playlist-card a')`), 'Playlist list absent');
+  await evaluate(`document.querySelector('.playlist-card a').click()`);
+  await waitFor(() => evaluate(`document.querySelectorAll('.track-play').length === 2`), 'Playlist absent after navigation');
+  await clickText('Retirer');
+  await waitFor(() => evaluate(`document.querySelectorAll('.track-play').length === 1`), 'Remove from playlist failed');
+  await call('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
+  assert.equal(await evaluate(`document.documentElement.scrollWidth <= innerWidth`), true, 'Playlists mobile overflow');
+  await clickText('Supprimer la playlist'); await clickText('Confirmer la suppression');
+  await waitFor(() => evaluate(`location.pathname === '/playlists' && !document.querySelector('.playlist-card')`), 'Playlist deletion failed');
+  assert.equal(tracks.size, 2, 'Deleting a playlist deleted audio tracks');
+  await call('Emulation.setDeviceMetricsOverride', { width: 1280, height: 900, deviceScaleFactor: 1, mobile: false });
   tracks.delete(followingTrack.id);
+  await evaluate(`[...document.querySelectorAll('a')].find(a => a.textContent.trim() === 'Backing tracks').click()`);
+  await waitFor(() => evaluate(`!!document.querySelector('.track-card')`), 'Library absent after playlist deletion');
   await secondEvaluate(`[...document.querySelectorAll('a')].find(a => a.textContent.trim() === 'Backing tracks').click()`);
   await waitFor(() => secondEvaluate(`!!document.querySelector('.track-card')`), 'Library absent');
   await secondEvaluate(`[...document.querySelectorAll('button')].find(b => b.textContent.trim() === 'Lire le morceau').click()`);
   await waitFor(() => secondEvaluate(`playingElement.readyState >= 2 && playingElement.src !== ${JSON.stringify(followingAudio)}`), 'Original track not restored');
   await secondEvaluate(`[...document.querySelectorAll('a')].find(a => a.textContent.trim() === 'Profil').click()`);
+  await secondCall('Page.bringToFront');
   await clickText('Modifier la couverture');
   await clickText('Retirer la couverture');
   await waitFor(() => evaluate(`document.querySelector('.track-card app-track-cover').textContent.includes('Sans couverture')`), 'Removal failed');
@@ -247,7 +310,7 @@ try {
   await delay(300);
   assert.equal(await evaluate(`document.documentElement.scrollWidth <= innerWidth`), true, 'Horizontal overflow on mobile');
   await evaluate(`document.querySelector('.delete-button').click()`);
-  await waitFor(() => evaluate(`document.querySelector('dialog').open`), 'Delete dialog absent');
+  await waitFor(() => evaluate(`document.querySelector('.delete-dialog').open`), 'Delete dialog absent');
   await clickText('Supprimer');
   await waitFor(() => evaluate(`!document.querySelector('.track-card')`), 'Track deletion failed');
   await waitFor(() => secondEvaluate(`!document.querySelector('audio').getAttribute('src') && document.querySelector('audio').paused`), 'Deleted track kept playing on profile');

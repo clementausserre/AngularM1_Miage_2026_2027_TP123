@@ -224,3 +224,59 @@ partage de morceaux n'est ajoutée : devenir amis ne change pas les droits
 d'accès aux audios ni aux couvertures. Pas de recherche publique par nom ni
 de notification temps réel : actualisation à la navigation, au retour dans
 l'onglet pour la pastille, et par le bouton Actualiser pour les listes.
+## TD4 — Playlists personnelles
+
+Base `/api/playlists`. Toutes les routes exigent le JWT et une session valide.
+Le propriétaire vient exclusivement du JWT ; chaque lecture/écriture filtre
+simultanément l'identifiant et `ownerId`. Réponses privées `Cache-Control:
+private, no-store`. Une playlist étrangère est indistinguable d'une absente.
+
+| Méthode | Route | Paramètres / corps | Succès |
+|---|---|---|---|
+| GET | `/` | Query `page` entier 1..100000, défaut 1 | `200 Page<PlaylistSummary>`, 12 éléments par page |
+| POST | `/` | JSON `{name}` | `201 Playlist`, initialement vide |
+| GET | `/:id` | Identifiant MongoDB, aucun corps | `200 Playlist` |
+| PUT | `/:id` | JSON `{version,name? ,trackIds?}` ; au moins un champ de modification | `200 Playlist` |
+| POST | `/:id/tracks` | JSON `{trackId}` | `200 Playlist`, ajout en fin de liste sans doublon |
+| DELETE | `/:id` | Aucun corps | `204`, les morceaux et fichiers sont conservés |
+
+`PlaylistSummary` expose `id`, `name`, `version`, `createdAt`, `updatedAt`,
+`trackCount` et `preview` (premier Track disponible, ou null). `Playlist` ajoute
+`tracks`, la liste ordonnée des métadonnées Track au format public existant.
+La liste des playlists est triée par création décroissante puis identifiant.
+Les query inconnues sont ignorées. `name` est une chaîne de 1 à 100 caractères
+après trim. Les doublons de nom sont autorisés. `trackIds` est un tableau de
+0 à 200 identifiants distincts de morceaux appartenant au compte connecté.
+Envoyer ce tableau permet de réordonner et de retirer des morceaux.
+
+La collection MongoDB `playlists` conserve seulement le propriétaire, le nom,
+les références ordonnées, une version et les dates ; aucun audio n'est copié.
+`PUT` exige la version entière non négative reçue lors de la lecture et écrit
+conditionnellement sur cette version, puis l'incrémente. Une modification
+concurrente retourne 409 pour éviter de perdre l'ordre ou les ajouts d'un autre
+onglet. L'ajout unitaire utilise aussi une écriture conditionnelle ; ajouter
+un morceau déjà présent ne change ni son ordre ni la version.
+
+Les morceaux supprimés ou inaccessibles sont filtrés à la lecture : le compteur,
+l'aperçu et le détail ne les exposent plus. Les références disparues peuvent
+rester en base jusqu'à la prochaine écriture du tableau ; l'ajout unitaire les
+retire également. Une suppression entre la validation et l'écriture peut laisser
+une référence sans cible, qui sera filtrée de la même manière. L'audio demeure
+protégé par les routes existantes du propriétaire.
+
+Erreurs JSON `{message}` : `400` nom/version/tableau invalide, doublons, plus de
+200 morceaux ou pagination invalide ; `401` session invalide ; `404` playlist
+ou morceau inaccessible/inexistant, ou identifiant de playlist invalide ; `409`
+modification concurrente ; `500` erreur interne ; `503` vérification de session
+indisponible. Les corps de création et ajout n'acceptent pas de propriétaire
+fourni par le client (champs supplémentaires ignorés).
+
+Le lecteur Angular conserve en mémoire une copie de l'ordre au lancement.
+Naviguer ou modifier la playlist ne modifie pas cette file déjà lancée. Relancer
+« Tout lire » applique le nouvel ordre. À sa fin, le lecteur s'arrête sans
+enchaîner la bibliothèque. Un morceau devenu introuvable (audio 404) est sauté
+s'il reste un suivant ; les autres erreurs gardent une action Réessayer. Une
+sélection depuis la bibliothèque quitte ce mode. La suppression locale de la
+playlist en cours arrête sa lecture ; une suppression depuis un autre onglet
+n'efface pas la copie déjà lancée. Déconnexion et rechargement complet effacent
+la file. Aucun partage de playlist avec des amis dans cette première version.

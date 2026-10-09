@@ -1,0 +1,67 @@
+<section aria-labelledby="playlists-title">
+  <div class="heading">
+    <div><p class="eyebrow">MA MUSIQUE, MON ORDRE</p><h1 id="playlists-title">{{ selected()?.name || (id() ? 'Ma playlist' : 'Mes playlists') }}</h1><p>Composez vos sélections et laissez les morceaux s’enchaîner.</p></div>
+    @if (!id()) { <button type="button" class="light" (click)="openCreate(createDialog)">+ Nouvelle playlist</button> }
+  </div>
+  <div class="toolbar">
+    @if (id()) { <a routerLink="/playlists">← Toutes mes playlists</a> } @else { <p>Vos sélections personnelles</p> }
+    <button type="button" class="secondary" [disabled]="busy() || loading()" (click)="load()">Actualiser</button>
+  </div>
+  @if (error()) { <p class="error" role="alert">{{ error() }}</p> }
+  <p class="feedback" role="status">{{ feedback() }}</p>
+  @if (loading()) { <p role="status">Chargement…</p> }
+  @else if (selected(); as playlist) {
+    <div class="playlist-toolbar">
+      <button type="button" [disabled]="!playlist.tracks.length || busy()" (click)="player.playPlaylist(playlist)">▶ Tout lire</button>
+      <a routerLink="/tracks" class="button-link secondary">+ Ajouter des morceaux</a>
+      <button type="button" class="secondary" [disabled]="busy()" (click)="startRename()">Renommer</button>
+      <button type="button" class="danger" [disabled]="busy()" (click)="requestDelete(playlist, deleteDialog)">Supprimer la playlist</button>
+    </div>
+    @if (editing()) {
+      <form class="rename" (submit)="$event.preventDefault(); rename()"><label for="playlist-name">Nom de la playlist</label><input id="playlist-name" [formControl]="name" maxlength="100" /><div class="actions"><button type="submit" [disabled]="busy() || name.invalid || !name.value.trim()">Enregistrer</button><button type="button" class="secondary" [disabled]="busy()" (click)="editing.set(false)">Annuler</button></div></form>
+    }
+    <p class="hint">{{ playlist.trackCount }} morceau(x) · Jusqu’à 200 morceaux. Ajoutez-les depuis la bibliothèque avec « Ajouter à une playlist ».</p>
+    <ol class="track-list" aria-label="Ordre des morceaux">
+      @for (track of playlist.tracks; track track.id; let i = $index) {
+        <li [class.selected]="player.playlist()?.id === playlist.id && player.selectedTrack()?.id === track.id">
+          <button class="track-play" type="button" (click)="player.playPlaylist(playlist, i)" [attr.aria-label]="'Lire ' + track.title + ' dans cette playlist'">
+            <span class="position">{{ i + 1 }}</span><app-track-cover [trackId]="track.id" [version]="track.cover?.version ?? null" [compact]="true" />
+            <span class="track-identity"><strong>{{ track.title }}</strong><small>{{ track.originalName }}</small></span><span aria-hidden="true">▶</span>
+          </button>
+          <div class="track-actions">
+            <button type="button" class="secondary" [disabled]="busy() || i === 0" (click)="move(i, -1)" [attr.aria-label]="'Monter ' + track.title" title="Monter">↑</button>
+            <button type="button" class="secondary" [disabled]="busy() || i === playlist.tracks.length - 1" (click)="move(i, 1)" [attr.aria-label]="'Descendre ' + track.title" title="Descendre">↓</button>
+            <button type="button" class="secondary" [disabled]="busy()" (click)="removeTrack(track.id)" [attr.aria-label]="'Retirer ' + track.title + ' de la playlist'">Retirer</button>
+          </div>
+        </li>
+      } @empty { <li class="empty"><h2>Votre sélection vous attend</h2><p>Retrouvez vos morceaux dans la bibliothèque pour remplir cette playlist.</p><a routerLink="/tracks">Ouvrir la bibliothèque</a></li> }
+    </ol>
+    <p class="hint">Le lecteur conserve l’ordre choisi au lancement. Après une modification, relancez « Tout lire » pour utiliser le nouvel ordre.</p>
+  } @else if (!id() && !error()) {
+    <div class="playlist-grid">
+      @for (playlist of items(); track playlist.id) {
+        <article class="playlist-card">
+          <a [routerLink]="['/playlists', playlist.id]" [attr.aria-label]="'Ouvrir ' + playlist.name">
+            @if (playlist.preview; as track) { <app-track-cover [trackId]="track.id" [version]="track.cover?.version ?? null" /> }
+            @else { <div class="placeholder" aria-hidden="true"><svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h12M4 10h10M4 15h6M17 18V9l4 1"/><ellipse cx="14" cy="19" rx="3" ry="2"/></svg></div> }
+            <h2>{{ playlist.name }}</h2><p>{{ playlist.trackCount }} morceau(x)</p>
+          </a>
+          <button type="button" class="secondary" [disabled]="busy()" (click)="requestDelete(playlist, deleteDialog)" [attr.aria-label]="'Supprimer la playlist ' + playlist.name">Supprimer</button>
+        </article>
+      } @empty { <div class="empty"><h2>Votre première playlist commence ici</h2><p>Un nom, vos morceaux préférés et un ordre qui vous ressemble.</p><button type="button" (click)="openCreate(createDialog)">Créer une playlist</button></div> }
+    </div>
+    @if (pages() > 1) { <nav class="pager" aria-label="Pagination des playlists"><button type="button" [disabled]="busy() || page() <= 1" (click)="go(page() - 1)">Précédent</button><span>{{ page() }} / {{ pages() }}</span><button type="button" [disabled]="busy() || page() >= pages()" (click)="go(page() + 1)">Suivant</button></nav> }
+  }
+</section>
+<dialog #createDialog aria-labelledby="create-playlist-title" (cancel)="$event.preventDefault(); close(createDialog)">
+  <h2 id="create-playlist-title">Nouvelle playlist</h2>
+  <form (submit)="$event.preventDefault(); create(createDialog)"><label for="create-playlist-name">Nom</label><input id="create-playlist-name" [formControl]="name" maxlength="100" autofocus placeholder="Ex. Soirée tranquille" />
+    @if (error()) { <p class="error" role="alert">{{ error() }}</p> }
+    <div class="actions"><button type="button" class="secondary" [disabled]="busy()" (click)="close(createDialog)">Annuler</button><button type="submit" [disabled]="busy() || name.invalid || !name.value.trim()">{{ busy() ? 'Création…' : 'Créer' }}</button></div>
+  </form>
+</dialog>
+<dialog #deleteDialog aria-labelledby="delete-playlist-title" (cancel)="$event.preventDefault(); close(deleteDialog)">
+  <h2 id="delete-playlist-title">Supprimer cette playlist ?</h2><p>« {{ deleting()?.name }} » sera supprimée. Les morceaux resteront dans votre bibliothèque.</p>
+  @if (error()) { <p class="error" role="alert">{{ error() }}</p> }
+  <div class="actions"><button type="button" class="secondary" autofocus [disabled]="busy()" (click)="close(deleteDialog)">Annuler</button><button type="button" class="danger" [disabled]="busy()" (click)="confirmDelete(deleteDialog)">{{ busy() ? 'Suppression…' : 'Confirmer la suppression' }}</button></div>
+</dialog>

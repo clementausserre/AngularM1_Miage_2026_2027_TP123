@@ -151,3 +151,25 @@ La pastille compte les demandes reçues et se rafraîchit à la navigation ou au
 retour dans l'onglet. Les listes ont un bouton Actualiser ; elles ne sont pas
 encore en temps réel. Être amis ne donne aucun accès automatique aux morceaux.
 Le contrat détaillé est dans `API_CONTRACT.md`.
+## TD4 — Playlists personnelles
+
+- Ouvrir **Playlists → Nouvelle playlist** pour créer une sélection.
+- Dans la bibliothèque, cliquer sur **Ajouter à une playlist** sous un morceau,
+  puis choisir une playlist (ou en créer une dans cette fenêtre).
+- Ouvrir la playlist pour renommer, retirer des morceaux et modifier leur ordre
+  avec les flèches. Les commandes restent utilisables au clavier et sur mobile.
+- **Tout lire** lance son ordre ; cliquer sur un morceau commence à cet endroit.
+  Le lecteur permanent garde la file pendant la navigation et s'arrête à la fin.
+- Supprimer une playlist conserve les morceaux dans la bibliothèque.
+
+Les playlists sont privées et stockées dans MongoDB, avec au maximum 200 morceaux
+distincts chacune. Une édition concurrente affiche un message demandant une
+actualisation. L'ordre du lecteur est une copie prise au lancement : relancer
+la playlist pour prendre en compte une modification. Les morceaux supprimés
+de la bibliothèque ne figurent plus dans les playlists affichées.
+
+Redémarrer le backend pour charger les nouvelles routes. La collection et
+l'index sont préparés au démarrage ; vérification manuelle possible avec
+`cd backend` puis `npm run db:playlists`. Cette préparation a été exécutée sur
+la base configurée le 9 octobre 2026 : collection `playlists` accessible et index
+sur propriétaire/date/identifiant présent, sans création de données de test.
