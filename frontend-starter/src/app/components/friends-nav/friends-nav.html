@@ -1,0 +1,3 @@
+<a routerLink="/friends" routerLinkActive="active" ariaCurrentWhenActive="page">Amis
+  @if (friends.incoming()) { <span [attr.aria-label]="friends.incoming() + ' demandes reçues'">{{ friends.incoming() }}</span> }
+</a>

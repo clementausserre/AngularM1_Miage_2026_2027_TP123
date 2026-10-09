@@ -2,10 +2,11 @@ import { Component, inject } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { AuthService } from '../../shared/services/auth.service';
 import { AudioPlayerComponent } from '../audio-player/audio-player';
+import { FriendsNavComponent } from '../friends-nav/friends-nav';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterLink, RouterLinkActive, RouterOutlet, AudioPlayerComponent],
+  imports: [RouterLink, RouterLinkActive, RouterOutlet, AudioPlayerComponent, FriendsNavComponent],
   templateUrl: './app.html',
   styleUrl: './app.css',
 })

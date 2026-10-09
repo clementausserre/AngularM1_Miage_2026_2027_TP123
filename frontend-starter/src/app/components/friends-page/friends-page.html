@@ -1,0 +1,61 @@
+<section aria-labelledby="friends-title">
+  <div class="heading"><div><p class="eyebrow">MA COMMUNAUTÉ</p><h1 id="friends-title">Mes amis</h1><p>Retrouvez vos amis grâce à leur code personnel.</p></div>
+    <button type="button" class="add" (click)="openAdd(addDialog)">+ Ajouter un ami</button>
+  </div>
+  <app-friend-code />
+  <div class="toolbar">
+    <nav aria-label="Listes d’amis">
+      <button type="button" [class.active]="kind() === 'accepted'" [attr.aria-pressed]="kind() === 'accepted'" (click)="changeKind('accepted')" [disabled]="busy()">Mes amis</button>
+      <button type="button" [class.active]="kind() !== 'accepted'" [attr.aria-pressed]="kind() !== 'accepted'" (click)="changeKind('incoming')" [disabled]="busy()">Demandes @if (friends.incoming()) { <span class="badge">{{ friends.incoming() }}</span> }</button>
+    </nav>
+    <button type="button" class="secondary" (click)="load()" [disabled]="loading() || busy()">Actualiser</button>
+  </div>
+  @if (kind() !== 'accepted') {
+    <div class="request-tabs" role="group" aria-label="Type de demandes">
+      <button type="button" [attr.aria-pressed]="kind() === 'incoming'" (click)="changeKind('incoming')" [disabled]="busy()">Reçues</button>
+      <button type="button" [attr.aria-pressed]="kind() === 'outgoing'" (click)="changeKind('outgoing')" [disabled]="busy()">Envoyées</button>
+    </div>
+  }
+  <p role="status" class="feedback">{{ feedback() }}</p>
+  @if (error()) { <p role="alert" class="error">{{ error() }}</p> }
+  @if (loading()) { <p role="status">Chargement…</p> }
+  @else {
+    <div class="friends-grid">
+      @for (item of items(); track item.id) {
+        <article class="friend-card">
+          <span class="avatar" aria-hidden="true">{{ initials(item.user.name) }}</span>
+          <h2>{{ item.user.name }}</h2>
+          <small>{{ kind() === 'accepted' ? 'Ami' : kind() === 'incoming' ? 'Souhaite devenir votre ami' : 'En attente de sa réponse' }}</small>
+          <div class="actions">
+            @if (kind() === 'incoming') { <button type="button" [disabled]="busy()" (click)="accept(item)">Accepter</button> }
+            <button type="button" class="secondary" [disabled]="busy()" (click)="requestRemove(item, removeDialog)">{{ kind() === 'accepted' ? 'Retirer cet ami' : kind() === 'incoming' ? 'Refuser' : 'Annuler la demande' }}</button>
+          </div>
+        </article>
+      } @empty {
+        <div class="empty"><h2>{{ kind() === 'accepted' ? 'Votre communauté commence ici' : 'Aucune demande pour le moment' }}</h2>
+          <p>{{ kind() === 'accepted' ? 'Partagez votre code ou ajoutez un ami pour vous retrouver.' : 'Les nouvelles demandes apparaîtront ici après actualisation.' }}</p></div>
+      }
+    </div>
+    @if (pages() > 1) { <nav class="pager" aria-label="Pagination des amis"><button type="button" (click)="go(page() - 1)" [disabled]="busy() || page() <= 1">Précédent</button><span>{{ page() }} / {{ pages() }}</span><button type="button" (click)="go(page() + 1)" [disabled]="busy() || page() >= pages()">Suivant</button></nav> }
+  }
+</section>
+<dialog #addDialog aria-labelledby="add-friend-title" (cancel)="$event.preventDefault(); closeAdd(addDialog)">
+  <h2 id="add-friend-title">Ajouter un ami</h2><p>Collez son code, puis vérifiez son nom avant d’envoyer la demande.</p>
+  <form (submit)="$event.preventDefault(); search()">
+    <label for="friend-code-input">Code ami</label><input id="friend-code-input" [formControl]="code" placeholder="GPC-7K4M-9P2R" maxlength="32" autocomplete="off" spellcheck="false" autofocus />
+    <button type="submit" [disabled]="code.invalid || searching() || busy()">{{ searching() ? 'Recherche…' : 'Rechercher' }}</button>
+  </form>
+  @if (lookupError()) { <p role="alert" class="error">{{ lookupError() }}</p> }
+  @if (lookup(); as result) {
+    <div class="result"><span class="avatar" aria-hidden="true">{{ initials(result.user.name) }}</span><strong>{{ result.user.name }}</strong></div>
+    @if (!result.relation) { <button type="button" [disabled]="busy()" (click)="send(addDialog)">{{ busy() ? 'Envoi…' : 'Envoyer une demande' }}</button> }
+    @else { <p role="status">{{ result.relation.status === 'accepted' ? 'Vous êtes déjà amis.' : result.relation.direction === 'incoming' ? 'Cette personne vous a déjà envoyé une demande. Retrouvez-la dans vos demandes reçues.' : 'Votre demande est déjà en attente.' }}</p> }
+  }
+  <div class="dialog-actions"><button type="button" class="secondary" [disabled]="busy()" (click)="closeAdd(addDialog)">Fermer</button></div>
+</dialog>
+<dialog #removeDialog aria-labelledby="remove-friend-title" (cancel)="$event.preventDefault(); cancelRemove(removeDialog)">
+  <h2 id="remove-friend-title">{{ kind() === 'accepted' ? 'Retirer cet ami ?' : 'Retirer cette demande ?' }}</h2>
+  <p>{{ removeTarget()?.user?.name }} — vous pourrez envoyer une nouvelle demande ultérieurement.</p>
+  @if (error()) { <p role="alert" class="error">{{ error() }}</p> }
+  <div class="dialog-actions"><button type="button" class="secondary" autofocus [disabled]="busy()" (click)="cancelRemove(removeDialog)">Annuler</button><button type="button" [disabled]="busy()" (click)="confirmRemove(removeDialog)">{{ busy() ? 'En cours…' : 'Confirmer' }}</button></div>
+</dialog>

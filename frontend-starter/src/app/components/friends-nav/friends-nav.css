@@ -1,0 +1,6 @@
+:host { display: inline-flex; }
+a { display: inline-flex; gap: 6px; align-items: center; justify-content: center; min-height: 44px; padding: 0 16px; border-radius: 999px; color: #d1e2d9; font-size: 12px; font-weight: 600; text-decoration: none; }
+a:hover { background: #ffffff0d; color: white; }
+a.active { background: #eff7f2; color: #204b3d; box-shadow: inset 0 0 0 1px #b7d0c3; }
+a:focus-visible { outline: 2px solid #cee8db; outline-offset: 3px; }
+span { border-radius: 999px; padding: 2px 6px; background: #cee8db; color: #103d31; font-size: 10px; }

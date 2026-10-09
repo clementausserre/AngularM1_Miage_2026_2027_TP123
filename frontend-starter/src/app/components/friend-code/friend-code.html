@@ -1,0 +1,7 @@
+<section aria-label="Mon code ami">
+  <div><strong>Mon code ami</strong><p>Partagez ce code pour vous retrouver, même avec le même nom.</p></div>
+  @if (loading()) { <p role="status">Chargement du code…</p> }
+  @if (code()) { <div class="code-row"><code>{{ code() }}</code><button type="button" (click)="copy()">Copier</button></div> }
+  @if (error()) { <p role="alert">{{ error() }}</p><button type="button" (click)="load()">Réessayer</button> }
+  <small role="status">{{ message() }}</small>
+</section>

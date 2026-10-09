@@ -5,7 +5,8 @@
     "scripts": {
         "start": "node --env-file=.env src/server.js",
         "start:local": "node src/server.js",
-        "test": "node --test"
+        "test": "node --test",
+        "db:friends": "node --env-file=.env scripts/prepare-friends.js"
     },
     "dependencies": {
         "bcryptjs": "^3.0.2",

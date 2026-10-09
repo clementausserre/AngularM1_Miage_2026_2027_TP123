@@ -173,3 +173,54 @@ peut laisser des fichiers orphelins à nettoyer (pas de transaction disque/Mongo
 - Un `403` sur cette route conserve la session pour permettre la correction.
 
 Les JWT nouvellement émis incluent `sessionVersion`. Chaque route protégée compare cette version à celle du compte en base. Un ancien token sans version est traité comme une version 0, de même qu’un ancien compte sans ce champ. Après modification, les anciennes sessions sont refusées lors de leur prochaine requête protégée ; les requêtes déjà autorisées ne sont pas annulées. Le frontend efface sa session et affiche une confirmation sur `/login`, puis demande une nouvelle connexion. Tous les backends partageant la base doivent être mis à jour pour appliquer cette révocation.
+# TD4 — Amis et codes personnels
+
+Toutes les routes suivantes sont relatives à `/api/friends`, protégées par le
+JWT et sa version de session. Réponses privées avec `Cache-Control: private,
+no-store`. Les erreurs sont des JSON `{message}`. Les noms affichés ne deviennent
+pas uniques. Aucun email, hash, code ami tiers ou contenu de bibliothèque n'est
+exposé par les listes et recherches d'amis.
+
+| Méthode | Route | Paramètres / corps | Succès |
+|---|---|---|---|
+| GET | `/code` | Aucun | `200 {code}` : code du compte connecté |
+| GET | `/summary` | Aucun | `200 {incoming}` : nombre de demandes reçues en attente |
+| GET | `/` | Query `kind=accepted\|incoming\|outgoing` (défaut accepted), `page` entier de 1 à 100000 (défaut 1) | `200 {items,page,limit:12,total,pages}` |
+| POST | `/lookup` | JSON `{code}` | `200 {user:{id,name},relation:null\|{id,status,direction}}` |
+| POST | `/requests` | JSON `{code}` | `201 {id,status:"pending"}` |
+| PUT | `/:id/accept` | Identifiant de relation, aucun corps requis | `204` : destinataire uniquement, demande encore en attente |
+| DELETE | `/:id` | Identifiant de relation, aucun corps | `204` : annulation, refus ou retrait d'un ami |
+
+Un élément de liste est `{id,status,createdAt,user:{id,name}}`, où `user`
+désigne l'autre personne. `status` vaut `pending` ou `accepted`. `direction`
+dans la recherche vaut `incoming` ou `outgoing`, du point de vue du demandeur.
+La liste est triée par date décroissante puis identifiant décroissant. Elle
+est paginée à 12 éléments. Les paramètres de query inconnus sont ignorés.
+
+Le code est une chaîne `GPC-XXXX-XXXX` composée de lettres majuscules (sans I ni O)
+et de chiffres 2 à 9. Recherche/envoi acceptent minuscules, espaces et tirets,
+avec une entrée de 32 caractères maximum. Le code est attribué au premier GET
+`/code`, pour les anciens comme les nouveaux comptes, et reste stable après
+changement de nom ou de mot de passe. Ce GET peut donc créer le code absent.
+La collection `friendcodes` impose un index unique sur `userId` et sur `code` ;
+les collisions sont réessayées et les requêtes concurrentes réutilisent le code
+déjà attribué. Les comptes utilisateurs existants ne sont pas réécrits.
+
+La collection `friendships` conserve demandeur, destinataire, état et dates.
+Un index unique sur la paire triée des identifiants empêche les doublons, même
+pour deux demandes simultanées en sens inverse. L'acceptation est conditionnelle
+sur destinataire et état, la suppression sur la participation à la relation.
+Après refus, annulation ou retrait, une nouvelle demande est possible.
+
+Erreurs : `400` code invalide, auto-demande ou pagination/catégorie invalide ;
+`401` session invalide ; `404` code inconnu, relation absente/inaccessible,
+identifiant invalide ou demande déjà traitée ; `409` relation déjà existante
+(y compris demande croisée) ; `500` erreur interne ; `503` vérification de
+session indisponible. La recherche indique une relation existante pour orienter
+l'utilisateur vers ses demandes plutôt que renvoyer une seconde demande.
+
+Les index sont initialisés avant l'ouverture du serveur. Aucune route de
+partage de morceaux n'est ajoutée : devenir amis ne change pas les droits
+d'accès aux audios ni aux couvertures. Pas de recherche publique par nom ni
+de notification temps réel : actualisation à la navigation, au retour dans
+l'onglet pour la pastille, et par le bouton Actualiser pour les listes.

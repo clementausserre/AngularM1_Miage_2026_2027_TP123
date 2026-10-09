@@ -1,0 +1,8 @@
+:host { display: block; }
+section { padding: 20px; border: 1px solid #d9e8df; border-radius: 16px; background: #edf5f0; }
+p { color: #52685f; font-size: 13px; line-height: 1.5; margin: 6px 0 12px; }
+.code-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+code { font-size: 17px; letter-spacing: .08em; user-select: all; overflow-wrap: anywhere; }
+button { min-height: 44px; font: inherit; font-size: 13px; border-radius: 999px; }
+button:focus-visible { outline: 2px solid #1d755e; outline-offset: 3px; }
+small { display: block; margin-top: 6px; color: #245d4c; }

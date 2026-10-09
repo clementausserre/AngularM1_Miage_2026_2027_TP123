@@ -15,12 +15,19 @@ const { default: jwt } = await fromBackend('node_modules/jsonwebtoken/index.js')
 const { createApp } = await fromBackend('src/app.js');
 const { Track } = await fromBackend('src/models/Track.js');
 const { User } = await fromBackend('src/models/User.js');
+const { FriendCode } = await fromBackend('src/models/FriendCode.js');
+const { Friendship } = await fromBackend('src/models/Friendship.js');
+const { installFriendsStore } = await fromBackend('test-support/friends-store.js');
 const ownerId = 'aaaaaaaaaaaaaaaaaaaaaaaa';
 const tracks = new Map();
+const friendUsers = new Map([ownerId, 'bbbbbbbbbbbbbbbbbbbbbbbb'].map(id => [id,
+  { _id: id, name: id === ownerId ? 'Browser Test' : 'Camille', sessionVersion: 0 }]));
+installFriendsStore({ FriendCode, Friendship, users: friendUsers });
 const user = { sessionVersion: 0, toPublic: () => ({ id: ownerId, name: 'Browser Test', email: 'browser@example.test' }) };
 User.findById = id => {
-  const selected = { ...user, toPublic: () => ({ ...user.toPublic(), id: String(id) }) };
-  return { select: async () => selected, then: (resolve, reject) => Promise.resolve(selected).then(resolve, reject) };
+  const selected = { ...user, ...friendUsers.get(String(id)), toPublic: () => ({ ...user.toPublic(), id: String(id) }) };
+  const query = { select: () => query, lean: async () => selected, then: (resolve, reject) => Promise.resolve(selected).then(resolve, reject) };
+  return query;
 };
 Track.create = async fields => { const track = new Track({ ...fields, createdAt: new Date() }); await track.validate(); tracks.set(track.id, track); return track; };
 const owned = filter => { const track = tracks.get(String(filter._id)); return track && String(track.ownerId) === filter.ownerId ? track : null; };
@@ -93,6 +100,40 @@ try {
   await call('Page.navigate', { url: origin + '/tracks' });
   await waitFor(() => evaluate(`!!document.querySelector('#track-file')`), 'Import form absent');
   await call('Page.removeScriptToEvaluateOnNewDocument', { identifier: initialSession.identifier });
+  // Exercise friends UI with a second authenticated account acting through the real HTTP API.
+  const friendToken = jwt.sign({ sub: 'bbbbbbbbbbbbbbbbbbbbbbbb', sessionVersion: 0 }, process.env.JWT_SECRET);
+  const friendApi = (route = '', method = 'GET', body) => fetch(origin + '/api/friends' + route, {
+    method, headers: { Authorization: `Bearer ${friendToken}`, 'Content-Type': 'application/json' },
+    ...(body ? { body: JSON.stringify(body) } : {}),
+  });
+  const friendCode = (await (await friendApi('/code')).json()).code;
+  await evaluate(`document.querySelector('app-friends-nav a').click()`);
+  await waitFor(() => evaluate(`!!document.querySelector('app-friend-code code')`), 'Friends code absent');
+  const ownCode = await evaluate(`document.querySelector('app-friend-code code').textContent.trim()`);
+  await clickText('+ Ajouter un ami');
+  await evaluate(`(() => { const input = document.querySelector('#friend-code-input'); input.value = ${JSON.stringify(friendCode)}; input.dispatchEvent(new Event('input', { bubbles: true })); })()`);
+  await clickText('Rechercher');
+  await waitFor(() => evaluate(`document.querySelector('.result strong')?.textContent === 'Camille'`), 'Friend lookup absent');
+  await clickText('Envoyer une demande');
+  await waitFor(() => evaluate(`!!document.querySelector('.friend-card') && !document.querySelector('dialog').open`), 'Sent request absent');
+  const received = await (await friendApi('?kind=incoming')).json();
+  assert.equal(received.total, 1);
+  assert.equal((await friendApi(`/${received.items[0].id}/accept`, 'PUT')).status, 204);
+  await clickText('Mes amis');
+  await waitFor(() => evaluate(`document.querySelector('.friend-card h2')?.textContent === 'Camille'`), 'Accepted friend absent');
+  await clickText('Retirer cet ami'); await clickText('Confirmer');
+  await waitFor(() => evaluate(`!document.querySelector('.friend-card') && !document.querySelector('dialog[open]')`), 'Removal failed');
+  assert.equal((await friendApi('/requests', 'POST', { code: ownCode })).status, 201);
+  await evaluate(`[...document.querySelectorAll('button')].find(b => b.textContent.trim().startsWith('Demandes')).click()`);
+  await waitFor(() => evaluate(`!!document.querySelector('.friend-card') && document.querySelector('app-friends-nav').textContent.includes('1')`), 'Received request or badge absent');
+  await clickText('Accepter');
+  await waitFor(() => evaluate(`document.querySelector('.feedback')?.textContent.includes('maintenant amis')`), 'Accept failed');
+  assert.equal((await (await friendApi()).json()).total, 1);
+  await call('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
+  assert.equal(await evaluate(`document.documentElement.scrollWidth <= innerWidth`), true, 'Friends mobile overflow');
+  await call('Emulation.setDeviceMetricsOverride', { width: 1280, height: 900, deviceScaleFactor: 1, mobile: false });
+  await evaluate(`[...document.querySelectorAll('a')].find(a => a.textContent.trim() === 'Backing tracks').click()`);
+  await waitFor(() => evaluate(`!!document.querySelector('#track-file')`), 'Library absent after friends navigation');
   await evaluate(`(() => {
     window.selectCover = (selector, color) => {
       const canvas = document.createElement('canvas'); canvas.width = 1200; canvas.height = 900;

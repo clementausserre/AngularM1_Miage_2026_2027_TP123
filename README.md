@@ -113,3 +113,41 @@ suivantes. Il s'arrête après le dernier morceau, sans revenir au premier.
 Les métadonnées de la bibliothèque sont relues à chaque transition ; seul
 l'audio du morceau suivant est téléchargé. Une erreur réseau permet de
 réessayer l'enchaînement depuis le lecteur.
+## TD4 — Amis
+
+Pour préparer ou vérifier les collections dans la base configurée par le backend :
+
+```bash
+cd backend
+npm run db:friends
+```
+
+Cette commande crée les index manquants sans supprimer les données ni changer
+les comptes. Elle affiche uniquement les noms des collections, leurs index et
+le nombre de documents, jamais l'URI de connexion ni les codes personnels.
+Vérification effectuée le 9 octobre 2026 sur la base configurée : collections
+`friendcodes` et `friendships` accessibles, index uniques présents. Aucun faux
+compte ni fausse relation n'a été ajouté pour cette vérification.
+
+L'onglet **Amis** permet de partager son code personnel, d'ajouter quelqu'un
+par son code, de gérer les demandes reçues/envoyées et de retirer un ami avec
+confirmation. Le code est aussi disponible dans le profil avec un bouton Copier
+(copie manuelle possible si le navigateur refuse le presse-papiers).
+
+Les noms actuels restent inchangés et peuvent être identiques. Les codes
+`GPC-XXXX-XXXX` sont générés par le serveur au premier affichage et stockés dans
+`friendcodes`. Les relations sont dans `friendships`. Les index uniques sont
+préparés au démarrage pour empêcher doublons et collisions. **Redémarrer le
+backend après cette mise à jour** ; aucune migration manuelle des comptes ni
+nouvelle dépendance n'est nécessaire.
+
+Pour essayer à deux : chacun ouvre son profil, partage son code, puis le premier
+recherche le code du second et confirme l'envoi. Le second ouvre **Amis →
+Demandes → Reçues**, actualise si nécessaire et accepte. Pour deux comptes sur
+un seul ordinateur, utiliser deux profils de navigateur ou une fenêtre privée :
+les onglets ordinaires partagent la même session.
+
+La pastille compte les demandes reçues et se rafraîchit à la navigation ou au
+retour dans l'onglet. Les listes ont un bouton Actualiser ; elles ne sont pas
+encore en temps réel. Être amis ne donne aucun accès automatique aux morceaux.
+Le contrat détaillé est dans `API_CONTRACT.md`.

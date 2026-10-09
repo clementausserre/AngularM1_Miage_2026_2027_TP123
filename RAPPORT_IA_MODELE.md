@@ -430,3 +430,40 @@ Validation : 117 tests frontend passent et la compilation réussit. Le scénario
 Chrome a vérifié la fin réelle d'un WAV puis le démarrage automatique du suivant
 depuis le profil, ainsi que l'arrêt après le dernier morceau. Serveur de test
 isolé avec persistance simulée ; aucune modification du backend.
+## TD4 — Première version des amis (8 octobre 2026)
+
+Demande du binôme : intégrer des relations d'amitié sans imposer l'unicité des
+noms actuels. Réalisation : code ami serveur stable, page Amis, ajout en deux
+étapes (recherche puis confirmation), demandes reçues/envoyées, acceptation,
+refus, annulation et retrait confirmé. Le profil affiche aussi le code et la
+navigation une pastille de demandes reçues.
+
+Architecture : collections `friendcodes` et `friendships`, routes protégées
+dans un routeur distinct, service Angular et composants séparés. Les index
+uniques portent sur code, utilisateur et paire triée ; le serveur attend leur
+initialisation. Les comptes existants obtiennent leur code au premier accès,
+sans modification de leur nom ni du schéma User. Le destinataire seul accepte,
+les participants seuls retirent une relation. La recherche est exacte par code,
+pas par nom. Les emails et bibliothèques restent privés.
+
+Validation : 122 tests frontend et 21 tests backend passent ; compilation
+Angular réussie. Tests HTTP avec JWT réels et persistance simulée : noms
+identiques, validation, collisions, demandes croisées concurrentes, droits
+d'accès, acceptation et suppression. Les index sont vérifiés dans les schémas ;
+leur création et leur concurrence sur un vrai MongoDB restent à vérifier avec
+Atlas par le binôme. Le navigateur utilise également une persistance simulée,
+sans accès aux données Atlas.
+
+À expliquer : différence entre nom et identifiant partagé ; pourquoi une
+contrainte unique en base est nécessaire en plus des contrôles d'interface ;
+pourquoi l'acceptation vérifie destinataire et état dans une même écriture.
+## Vérification de la persistance réelle — 9 octobre 2026
+
+La connexion à la base MongoDB configurée dans le backend a été effectuée via
+`npm run db:friends`. Le script prépare les index manquants et vérifie les
+collections sans exposer de données personnelles. Résultat observé : un code
+ami déjà enregistré dans `friendcodes`, aucune relation dans `friendships`,
+index uniques sur `userId`, `code` et `pair` présents. Aucun compte ou lien de
+test n'a été créé dans cette base. Le parcours complet avec deux utilisateurs
+reste couvert par les tests simulés ; cette vérification réelle porte sur la
+connexion, les collections, les index et les documents déjà présents.

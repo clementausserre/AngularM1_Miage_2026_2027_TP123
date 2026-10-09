@@ -6,9 +6,10 @@ import { finalize } from 'rxjs';
 import { User } from '../../shared/models/user.model';
 import { AuthService } from '../../shared/services/auth.service';
 import { PasswordFormComponent } from '../password-form/password-form';
+import { FriendCodeComponent } from '../friend-code/friend-code';
 
 @Component({
-  imports: [ReactiveFormsModule, PasswordFormComponent],
+  imports: [ReactiveFormsModule, PasswordFormComponent, FriendCodeComponent],
   templateUrl: './profile-page.html',
   styleUrl: './profile-page.css',
 })
