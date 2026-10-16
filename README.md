@@ -20,7 +20,7 @@ documents utiles et nos rendus.
 - Node.js 22 ou plus récent ;
 - un compte MongoDB Atlas par binôme ;
 - Git et un navigateur récent ;
-- un IDE de qualité ;
+- un IDE (ex : VS Code) ;
 - recommandé : un abonnement à un assistant IA (voir
   [CONSEILS_POUR_UTIISER_ASSISTANT_AI.md](CONSEILS_POUR_UTIISER_ASSISTANT_AI.md)).
 
