@@ -121,13 +121,15 @@ Vérification manuelle à faire, avec le backend connecté et deux onglets sur �
 - importer une piste dans le premier : elle apparaît dans le second ;
 - la supprimer : elle disparaît du second.
 
-## 7. Preuves Network — à compléter par le binôme
+## 7. Preuves Network
 
-Non réalisées : le backend ne pouvait pas se connecter à MongoDB Atlas, car l'IP n'était pas autorisée.
+Réalisées le 16 octobre 2026, avec le backend connecté à MongoDB Atlas (les premières tentatives avaient échoué car l'IP n'était pas autorisée). Le token est masqué sur chaque capture.
 
-- [ ] Capture d'une requête `DELETE /api/tracks/:id` → 204 après confirmation (masquer le token)
-- [ ] Capture de l'upload `POST /api/tracks` (multipart) et de la barre de progression
-- [ ] Console : aucune erreur inattendue, aucun mot de passe ni JWT affiché
+- [x] Capture d'une requête `DELETE /api/tracks/:id` → 204 après confirmation : [Suppression_DELETE.png](Capture_Network/Suppression_DELETE.png)
+- [x] Capture de l'upload `POST /api/tracks` (multipart) et de la barre de progression, en « 3G » : [Upload_Progression.png](Capture_Network/Upload_Progression.png)
+- [x] Console : aucune erreur venant de l'application, aucun mot de passe ni JWT affiché. Seule ligne rouge : `GET /favicon.ico 404`, requête automatique du navigateur (le projet n'a pas d'icône).
+
+Les captures du TP2 (pagination, upload multipart, lecture authentifiée) sont dans [`TP2-Rendu/Capture_Network/`](../TP2-Rendu/Capture_Network/) et commentées dans [`TP2-Rendu/Questions.md`](../TP2-Rendu/Questions.md).
 
 ## 8. Corrections de la revue avant TD4 — 8 octobre 2026
 
@@ -158,8 +160,8 @@ onglet. Le fichier audio est une fixture synthétique ; cet essai ne valide pas
 la qualité de lecture d'un véritable morceau. Les fichiers temporaires sont
 nettoyés à la fin.
 
-Ces résultats ne remplacent pas les captures Network avec Atlas ni les
-explications personnelles encore demandées dans la section 7.
+Ces résultats complètent les captures Network réalisées avec Atlas
+(section 7).
 
 ## 9. Tests ajoutés avec le TD4 — 8 et 9 octobre 2026
 

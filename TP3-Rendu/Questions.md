@@ -110,4 +110,16 @@ Un test de bout en bout irait plus loin : navigateur, frontend, backend et Mongo
 | Network : upload | `POST /api/tracks` multipart (`audio`, `title`) → `201` ; barre de progression qui avance pendant l'envoi (plus visible avec le débit limité à « Slow 4G ») |
 | Console | aucune erreur inattendue ; seuls des statuts et identifiants de pistes sont journalisés, jamais de mot de passe ni de JWT |
 
-Captures à ajouter dans `TP3-Rendu/Capture_Network/`, en masquant l'en-tête `Authorization`.
+### Captures Network (16 octobre 2026, backend connecté à Atlas)
+
+La valeur de l'en-tête `Authorization` est masquée sur chaque capture.
+
+**Suppression** — après confirmation, `DELETE /api/tracks/:id` → `204 No Content`, suivi du rechargement `GET /api/tracks?page=1&limit=5` ; le SnackBar affiche « « Test 2 » a été supprimé. ».
+
+![Suppression : requête DELETE et SnackBar](Capture_Network/Suppression_DELETE.png)
+
+**Progression de l'upload** — débit limité en « 3G » : la page affiche « Envoi du fichier en cours… », la barre à 70 % et le bouton « Importation… » désactivé, pendant que `POST /api/tracks` (multipart) est encore en cours.
+
+![Upload : barre de progression pendant l'envoi](Capture_Network/Upload_Progression.png)
+
+**Console** — aucune erreur venant de l'application. La seule ligne rouge est `GET /favicon.ico 404`, une requête automatique du navigateur (le projet n'a pas d'icône). Les messages de l'application ne contiennent que des statuts HTTP et des identifiants de pistes, jamais de mot de passe ni de JWT.

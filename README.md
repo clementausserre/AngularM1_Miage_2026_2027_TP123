@@ -280,8 +280,12 @@ sur propriétaire/date/identifiant présent, sans création de données de test.
 - [TP2-Rendu/Questions.md](TP2-Rendu/Questions.md) : choix `Blob`/`ObjectURL`,
   flux d'upload et de lecture, questions sur la mémoire, le buffering et le
   streaming ;
+- [TP2-Rendu/Capture_Network/](TP2-Rendu/Capture_Network/) : pagination,
+  upload multipart et lecture audio authentifiée ;
 - [TP3-Rendu/Questions.md](TP3-Rendu/Questions.md) : sécurité de la
   suppression, progression d'upload et questions de la restitution orale ;
+- [TP3-Rendu/Capture_Network/](TP3-Rendu/Capture_Network/) : suppression
+  (`DELETE` → 204) et progression de l'upload ;
 - [TP3-Rendu/Rapport_Tests.md](TP3-Rendu/Rapport_Tests.md) : rapport des tests ;
 - [RAPPORT_IA_MODELE.md](RAPPORT_IA_MODELE.md) : rapport d'usage de l'IA pour
   chaque mission.

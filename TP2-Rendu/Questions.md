@@ -115,4 +115,26 @@ Le test « révocation des ObjectURL » de `tests/tracks-page.spec.ts` le vérif
 | Fichier invalide | `400` avec message affiché. Avec un `.txt` renommé en `.mp3`, la validation frontend bloque déjà sur le type MIME |
 | Propriétaire uniquement | Avec le compte B, `GET /api/tracks/<id du compte A>/audio` → `404`. Le backend filtre sur `{ _id, ownerId }` et ne dit pas si la piste existe |
 
-Captures à ajouter dans `TP2-Rendu/Capture_Network/`, en masquant l'en-tête `Authorization`.
+### Captures Network (16 octobre 2026, backend connecté à Atlas)
+
+La valeur de l'en-tête `Authorization` est masquée sur chaque capture.
+
+**Pagination** — `GET /api/tracks?page=2&limit=5` → `200 OK`, la page affiche « Page 2 / 2 » et Suivant est désactivé.
+
+![Pagination : requête de la page 2](Capture_Network/Pagination_Page2.png)
+
+**Upload** — `POST /api/tracks` → `201 Created`, `Content-Type: multipart/form-data`, JWT présent ; la page confirme « Votre morceau a été importé. ».
+
+![Upload : en-têtes de la requête multipart](Capture_Network/Upload_Headers.png)
+
+Le corps contient exactement les champs `audio` (binaire) et `title`.
+
+![Upload : champs audio et title du FormData](Capture_Network/Upload_Payload.png)
+
+**Lecture audio authentifiée** — `GET /api/tracks/:id/audio` → `200 OK`, `Content-Type: audio/mpeg`, `Content-Length` d'environ 3,6 Mo (fichier entier, transformé en `Blob`), `Accept-Ranges: bytes` (envoi par `res.sendFile`).
+
+![Lecture : réponse audio](Capture_Network/Lecture_Audio.png)
+
+La requête audio part avec `Authorization: Bearer …`, ajouté par l'intercepteur.
+
+![Lecture : en-tête Authorization](Capture_Network/Lecture_Audio_Authorization.png)
