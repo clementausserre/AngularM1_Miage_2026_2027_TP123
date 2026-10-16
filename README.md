@@ -278,6 +278,11 @@ sur propriétaire/date/identifiant présent, sans création de données de test.
   connexion (en-têtes et réponse) ;
 - [schema-connexion.svg](schema-connexion.svg) : schéma annoté du flux de
   connexion ;
+- [TP2-Rendu/Questions.md](TP2-Rendu/Questions.md) : choix `Blob`/`ObjectURL`,
+  flux d'upload et de lecture, questions sur la mémoire, le buffering et le
+  streaming ;
+- [TP3-Rendu/Questions.md](TP3-Rendu/Questions.md) : sécurité de la
+  suppression, progression d'upload et questions de la restitution orale ;
 - [TP3-Rendu/Rapport_Tests.md](TP3-Rendu/Rapport_Tests.md) : rapport des tests ;
 - [RAPPORT_IA_MODELE.md](RAPPORT_IA_MODELE.md) : rapport d'usage de l'IA pour
   chaque mission.
