@@ -344,9 +344,7 @@ Le backend, l’API et `API_CONTRACT.md` sont inchangés.
 **Demande.** Fusionner la branche `tp3-finalisation` dans `main`, qui avait reçu entre-temps le commit du binôme sur les images de couverture. En cas de conflit, conserver si possible le code des deux branches.
 
 **Conflits et résolutions :**
-- `frontend-starter/package.json` : les deux branches avaient ajouté `jsdom` (`^30.1.1` sur `main`, `^30.1.2` sur la branche TP3), et `^30.1.2` a été conservé. Les deux façons de lancer les tests sont gardées :
-  - `npm test` lance `ng test --watch=false`, configuré par le binôme dans `angular.json` et `tsconfig.spec.json`, qui exécute tous les tests, y compris `covers.spec.ts` ;
-  - `npm run test:vitest` lance vitest seul, sans `covers.spec.ts`, pour une vérification rapide.
+- `frontend-starter/package.json` : les deux branches avaient ajouté `jsdom` (`^30.1.1` sur `main`, `^30.1.2` sur la branche TP3), et `^30.1.2` a été conservé. `npm test` lance `ng test --watch=false`, configuré par le binôme dans `angular.json` et `tsconfig.spec.json`, qui exécute tous les tests, y compris `covers.spec.ts`.
 - `frontend-starter/package-lock.json` : la version de la branche TP3 a été reprise, car elle contenait déjà `jsdom` et le correctif de `npm audit fix`. `npm install` n’y a rien changé.
 
 **Fusions automatiques, relues par l’assistant :** `tracks-page.ts`, `.html` et `.spec.ts`. Les couvertures (sélecteur, éditeur, affichage) et la synchronisation entre onglets y cohabitent.
@@ -357,7 +355,6 @@ Le backend, l’API et `API_CONTRACT.md` sont inchangés.
 
 **Résultats observés :**
 - `npm test` frontend : 98 tests réussis dans 10 fichiers ;
-- `npm run test:vitest` : 93 tests réussis ;
 - `npm test` backend : 16 tests réussis ;
 - `npm run build` : réussi.
 
