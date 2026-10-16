@@ -14,8 +14,6 @@ Aucun test ne dépend d'un backend lancé ni de MongoDB :
 | `cd backend && npm test` (`node --test`) | **23 tests réussis, 0 échec** (16 tests, dont 7 sous-tests dans `covers.test.js`) |
 | `cd frontend-starter && npm run build` | **Compilation réussie** (`Application bundle generation complete`) |
 
-**Suppression du script `test:vitest` (16 octobre).** Ce script lançait Vitest seul. Il avait été ajouté comme solution de secours au début du TP3, quand `ng test` n'était pas encore configuré ; il ne faisait pas partie du projet fourni. Vitest seul ne compile pas les composants Angular qui ont un fichier HTML ou CSS séparé (`templateUrl`, `styleUrl`). Il échouait donc sur `covers.spec.ts` (déjà exclu), ainsi que sur `audio-player.spec.ts`, `friends.spec.ts` et `playlists.spec.ts`, ajoutés au TD4 (« Component '…' is not resolved »). Ces tests étaient corrects : ils passent avec `ng test`, qui utilise Vitest après avoir compilé les composants. `npm test` est maintenant la seule commande frontend, comme dans le projet fourni.
-
 Répartition des 131 tests frontend :
 
 | Fichier | Tests | Contenu |
