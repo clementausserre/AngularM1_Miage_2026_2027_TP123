@@ -71,8 +71,7 @@ simulées côté frontend et la persistance Mongoose est simulée côté backend
 
 ```bash
 cd backend && npm test               # node --test : serveur Express et JWT réels
-cd frontend-starter && npm test      # ng test --watch=false : tous les tests Angular
-cd frontend-starter && npm run test:vitest   # vitest seul, sans covers.spec.ts
+cd frontend-starter && npm test      # ng test --watch=false : tous les tests Angular (Vitest)
 cd frontend-starter && npm run build
 ```
 
