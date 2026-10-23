@@ -128,3 +128,41 @@ nettoyés à la fin.
 
 Ces résultats ne remplacent pas les captures Network avec Atlas ni les
 explications personnelles encore demandées dans la section 7.
+
+## 9. Jams — salons et invitations, 23 octobre 2026
+
+Première étape uniquement : création, invitations entre amis, acceptation/refus,
+participants, départ et fermeture par l’hôte. Aucun audio partagé ou synchronisé.
+
+| Commande | Résultat observé |
+|---|---|
+| `cd backend` puis `npm test` | 28 tests réussis |
+| `cd frontend-starter` puis `npm test` | 146 tests réussis dans 15 fichiers |
+| `cd frontend-starter` puis `npm run build` | Compilation réussie |
+| À la racine : `node backend/scripts/check-jams-browser.mjs` | Parcours Chrome réussi avec deux comptes isolés et MongoDB simulé |
+
+`backend/test/jams.test.js` vérifie le cycle de vie par de vraies requêtes HTTP :
+authentification, accès des seuls participants, validation des entrées, refus des
+non-amis, acceptation unique, départ, fermeture, concurrence, pagination et limite
+de 20 places. L’adaptateur de test utilise la validation Mongoose et simule les
+écritures conditionnelles ; il ne prouve pas le fonctionnement d’un index sur une
+instance MongoDB réelle. Les index sont initialisés au démarrage du backend.
+
+`frontend-starter/tests/jams.spec.ts` vérifie les routes protégées, le retour après
+authentification, les méthodes et corps HTTP, les doubles clics, les erreurs,
+les actions selon le rôle, la confirmation de départ, l’actualisation et
+l’annulation des requêtes à la navigation ou à la destruction.
+
+Le script navigateur utilise le build Angular et Express réels avec une
+persistance simulée et deux profils Chrome temporaires. Il vérifie création,
+invitation, acceptation, participants, rechargement de l’URL du salon, départ et
+annulation, refus, fermeture, authentification des requêtes via les événements
+Network, absence d’exceptions JavaScript et absence de débordement horizontal à
+390 et 900 pixels. Aucun compte ni document Atlas n’est créé.
+
+Deux problèmes ont été rencontrés puis corrigés : le nouveau lien vers Jams
+nécessitait `provideRouter([])` dans les tests de la page Amis ; le rechargement
+d’une URL imbriquée nécessitait `<base href="/">` dans `src/index.html` pour charger
+les ressources depuis la racine. Les vérifications ci-dessus ont réussi après
+ces corrections. Les essais manuels avec les comptes du binôme et Atlas restent
+à réaliser après redémarrage du backend.

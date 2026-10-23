@@ -4,6 +4,7 @@ import { User } from "./models/User.js";
 import { FriendCode } from './models/FriendCode.js';
 import { Friendship } from './models/Friendship.js';
 import { Playlist } from './models/Playlist.js';
+import { Jam } from './models/Jam.js';
 
 // Le port et l'URI viennent de l'environnement du backend, jamais d'Angular.
 const port = process.env.PORT || 3000;
@@ -52,7 +53,7 @@ try {
 }
 
 // Unique indexes must exist before accepting concurrent friend requests or code allocations.
-await Promise.all([FriendCode.init(), Friendship.init(), Playlist.init()]);
+await Promise.all([FriendCode.init(), Friendship.init(), Playlist.init(), Jam.init()]);
 const server = createApp().listen(port, () => {
   console.log(`Guitar Practice Cloud API: http://localhost:${port}/api/health`);
 });

@@ -1,0 +1,100 @@
+<section aria-labelledby="jams-title">
+  <div class="heading">
+    <p class="eyebrow">SE RETROUVER ENTRE AMIS</p>
+    <h1 id="jams-title">{{ selected()?.name || 'Jams entre amis' }}</h1>
+    <p>Créez votre salon et rassemblez vos amis. L’écoute synchronisée sera disponible dans une prochaine étape.</p>
+  </div>
+  <div class="toolbar">
+    @if (id()) { <a routerLink="/jams">← Mes jams et invitations</a> }
+    @else { <a routerLink="/friends">Gérer mes amis</a> }
+    <button type="button" class="secondary" [disabled]="busy() || loading()" (click)="load()">Actualiser</button>
+  </div>
+  <p class="hint">Actualisation toutes les 10 secondes lorsque cette page est visible.</p>
+  @if (error()) { <p class="error" role="alert">{{ error() }}</p> }
+  @if (feedback()) { <p class="feedback" role="status">{{ feedback() }}</p> }
+  @if (loading() && !selected() && !items().length) { <p role="status">Chargement…</p> }
+
+  @if (selected(); as jam) {
+    <div class="columns">
+      <section class="panel" aria-labelledby="participants-title">
+        <h2 id="participants-title">Participants · {{ jam.participants.length }}</h2>
+        <p>Hôte : {{ jam.host.name }}</p>
+        <ul>
+          @for (person of jam.participants; track person.id) {
+            <li><strong>{{ person.name }}</strong><span>{{ person.id === jam.host.id ? 'Hôte' : 'Participant' }}</span></li>
+          }
+        </ul>
+        @if (jam.role === 'host' && jam.invitations.length) {
+          <h3>Invitations en attente · {{ jam.invitations.length }}</h3>
+          <ul>@for (person of jam.invitations; track person.id) { <li>{{ person.name }}<span>En attente</span></li> }</ul>
+        }
+        @if (confirmingLeave()) {
+          <div class="confirmation" role="group" aria-label="Confirmation de départ">
+            <p>{{ jam.role === 'host' ? 'Fermer cette jam pour tous les participants ? Les invitations seront annulées.' : 'Quitter cette jam ? Une nouvelle invitation sera nécessaire pour revenir.' }}</p>
+            <div class="actions">
+              <button type="button" class="secondary" [disabled]="busy()" (click)="confirmingLeave.set(false)">Annuler</button>
+              <button type="button" class="danger" [disabled]="busy()" (click)="leave()">Confirmer</button>
+            </div>
+          </div>
+        } @else {
+          <button type="button" class="danger" [disabled]="busy()" (click)="confirmingLeave.set(true)">{{ jam.role === 'host' ? 'Fermer la jam pour tous' : 'Quitter la jam' }}</button>
+        }
+      </section>
+      @if (jam.role === 'host') {
+        <section class="panel" aria-labelledby="invite-title">
+          <h2 id="invite-title">Inviter mes amis</h2>
+          <p class="hint">20 places maximum, hôte et invitations en attente compris.</p>
+          <button type="button" class="secondary" [disabled]="busy() || friendsLoading()" (click)="loadFriends()">Actualiser les amis</button>
+          @if (friendsError()) { <p class="error" role="alert">{{ friendsError() }}</p> }
+          @if (friendsLoading()) { <p role="status">Chargement des amis…</p> }
+          <ul>
+            @for (friend of friends(); track friend.id) {
+              <li><strong>{{ friend.user.name }}</strong><button type="button"
+                [disabled]="busy() || friendsLoading() || !friend.user.id || inviteLabel(friend.user.id) !== 'Inviter' || jam.participants.length + jam.invitations.length >= 20"
+                [attr.aria-label]="inviteLabel(friend.user.id) + ' : ' + friend.user.name"
+                (click)="invite(friend.user.id)">{{ inviteLabel(friend.user.id) }}</button></li>
+            } @empty { @if (!friendsLoading() && !friendsError()) { <li>Aucun ami pour le moment. <a routerLink="/friends">Ajouter un ami</a></li> } }
+          </ul>
+          @if (friendPages() > 1) {
+            <nav class="pager" aria-label="Pages des amis">
+              <button type="button" class="secondary" [disabled]="busy() || friendsLoading() || friendPage() <= 1" (click)="loadFriends(friendPage() - 1)">Précédent</button>
+              <span>{{ friendPage() }} / {{ friendPages() }}</span>
+              <button type="button" class="secondary" [disabled]="busy() || friendsLoading() || friendPage() >= friendPages()" (click)="loadFriends(friendPage() + 1)">Suivant</button>
+            </nav>
+          }
+        </section>
+      }
+    </div>
+  } @else if (!id()) {
+    <form class="panel create" (submit)="$event.preventDefault(); create()">
+      <label for="jam-name">Nom de votre nouvelle jam</label>
+      <div class="actions"><input id="jam-name" [formControl]="name" maxlength="100" placeholder="Ex. Session du vendredi" />
+        <button type="submit" [disabled]="busy() || name.invalid || !name.value.trim()">Créer une jam</button></div>
+      <small>Vous pouvez animer une jam à la fois.</small>
+    </form>
+    <div class="tabs" role="group" aria-label="Jams à afficher">
+      <button type="button" [class.secondary]="kind() !== 'joined'" [attr.aria-pressed]="kind() === 'joined'" [disabled]="busy()" (click)="changeKind('joined')">Mes jams</button>
+      <button type="button" [class.secondary]="kind() !== 'invitations'" [attr.aria-pressed]="kind() === 'invitations'" [disabled]="busy()" (click)="changeKind('invitations')">Invitations reçues</button>
+    </div>
+    <div class="jam-list">
+      @for (jam of items(); track jam.id) {
+        <article class="panel">
+          <h2>{{ jam.name }}</h2><p>Hôte : {{ jam.host.name }}</p>
+          @if (jam.role === 'invited') {
+            <div class="actions">
+              <button type="button" [disabled]="busy()" (click)="accept(jam)" [attr.aria-label]="'Rejoindre ' + jam.name">Accepter et rejoindre</button>
+              <button type="button" class="secondary" [disabled]="busy()" (click)="decline(jam)" [attr.aria-label]="'Refuser ' + jam.name">Refuser</button>
+            </div>
+          } @else { <a [routerLink]="['/jams', jam.id]">Ouvrir la jam{{ jam.role === 'host' ? ' · Vous êtes l’hôte' : '' }}</a> }
+        </article>
+      } @empty { @if (!loading() && !error()) { <p class="empty">{{ kind() === 'invitations' ? 'Aucune invitation en attente.' : 'Vous ne participez à aucune jam. Créez-en une ou acceptez une invitation.' }}</p> } }
+    </div>
+    @if (pages() > 1) {
+      <nav class="pager" aria-label="Pages des jams">
+        <button type="button" class="secondary" [disabled]="busy() || loading() || page() <= 1" (click)="go(page() - 1)">Précédent</button>
+        <span>{{ page() }} / {{ pages() }}</span>
+        <button type="button" class="secondary" [disabled]="busy() || loading() || page() >= pages()" (click)="go(page() + 1)">Suivant</button>
+      </nav>
+    }
+  }
+</section>

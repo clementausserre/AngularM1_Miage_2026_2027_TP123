@@ -1,6 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting, HttpTestingController } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { afterEach, expect, it, vi } from 'vitest';
 import { FriendsPageComponent } from '../src/app/components/friends-page/friends-page';
 import { routes } from '../src/app/routes';
@@ -9,7 +10,7 @@ import { authGuard } from '../src/app/shared/guards/auth.guard';
 afterEach(() => { TestBed.resetTestingModule(); vi.restoreAllMocks(); });
 const empty = { items: [], page: 1, pages: 1, total: 0, limit: 12 };
 function setup() {
-  TestBed.configureTestingModule({ providers: [provideHttpClient(), provideHttpClientTesting()] });
+  TestBed.configureTestingModule({ providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])] });
   const fixture = TestBed.createComponent(FriendsPageComponent);
   fixture.detectChanges();
   const http = TestBed.inject(HttpTestingController);

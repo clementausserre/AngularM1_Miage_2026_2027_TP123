@@ -224,6 +224,38 @@ it('plays a playlist snapshot in its own order, stops at its end and can return 
   player.stop(); expect(player.selectedTrack()).toBeNull();
 });
 
+it('shuffles a snapshot once, plays every track once and restores normal order on relaunch', () => {
+  const { player, service, audios } = setup();
+  vi.spyOn(Math, 'random').mockReturnValue(0);
+  const tracks = [track, { ...track, id: '2' }, { ...track, id: '3' }];
+  const playlist: Playlist = { id: 'p', name: 'Mix', version: 0, createdAt: '', updatedAt: '', trackCount: 3, preview: track, tracks };
+  player.playPlaylist(playlist, 0, true);
+  expect(player.playlist()?.shuffled).toBe(true);
+  const played: string[] = [];
+  for (let i = 0; i < 3; i++) {
+    played.push(player.selectedTrack()!.id);
+    audios[i].complete();
+    player.advance();
+  }
+  expect(played).toEqual(['2', '3', '1']);
+  expect(tracks.map(item => item.id)).toEqual(['1', '2', '3']);
+  expect(service.audio).toHaveBeenCalledTimes(3);
+  expect(service.list).toHaveBeenCalledOnce();
+  player.playPlaylist(playlist);
+  expect(player.playlist()?.shuffled).toBe(false);
+  expect(player.selectedTrack()?.id).toBe('1');
+  player.stop();
+  expect(player.playlist()).toBeNull();
+});
+
+it.each([0, 1])('handles shuffle with %s tracks', count => {
+  const { player, service, audios } = setup();
+  player.playPlaylist({ id: 'p', name: 'Mix', version: 0, createdAt: '', updatedAt: '', trackCount: count, preview: null, tracks: count ? [track] : [] }, 0, true);
+  if (count) { audios[0].complete(); player.advance(); }
+  expect(service.audio).toHaveBeenCalledTimes(count);
+  expect(player.selectedTrack()).toEqual(count ? track : null);
+});
+
 it('skips a missing playlist track and keeps playlist context after a retry', async () => {
   const { player, audios } = setup();
   const second = { ...track, id: '2' };

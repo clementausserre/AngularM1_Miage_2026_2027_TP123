@@ -12,7 +12,8 @@
   @if (loading()) { <p role="status">Chargement…</p> }
   @else if (selected(); as playlist) {
     <div class="playlist-toolbar">
-      <button type="button" [disabled]="!playlist.tracks.length || busy()" (click)="player.playPlaylist(playlist)">▶ Tout lire</button>
+      <button type="button" [class.secondary]="shuffled()" [attr.aria-pressed]="!shuffled()" [disabled]="!playlist.tracks.length || busy()" (click)="player.playPlaylist(playlist)">▶ Tout lire</button>
+      <button type="button" [class.secondary]="!shuffled()" [attr.aria-pressed]="shuffled()" [disabled]="!playlist.tracks.length || busy()" (click)="player.playPlaylist(playlist, 0, true)">⇄ Lecture aléatoire</button>
       <a routerLink="/tracks" class="button-link secondary">+ Ajouter des morceaux</a>
       <button type="button" class="secondary" [disabled]="busy()" (click)="startRename()">Renommer</button>
       <button type="button" class="danger" [disabled]="busy()" (click)="requestDelete(playlist, deleteDialog)">Supprimer la playlist</button>

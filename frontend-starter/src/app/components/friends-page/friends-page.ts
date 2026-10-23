@@ -2,12 +2,13 @@ import { Component, DestroyRef, inject, signal } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { finalize, Subscription } from 'rxjs';
 import { FriendService } from '../../shared/services/friend.service';
 import { FriendKind, FriendLookup, Friendship } from '../../shared/models/friend.model';
 import { FriendCodeComponent } from '../friend-code/friend-code';
 
-@Component({ imports: [ReactiveFormsModule, FriendCodeComponent], templateUrl: './friends-page.html', styleUrl: './friends-page.css' })
+@Component({ imports: [ReactiveFormsModule, FriendCodeComponent, RouterLink], templateUrl: './friends-page.html', styleUrl: './friends-page.css' })
 export class FriendsPageComponent {
   readonly friends = inject(FriendService);
   private readonly destroyRef = inject(DestroyRef);

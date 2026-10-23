@@ -11,6 +11,7 @@
       (ended)="player.advance()"
       (error)="player.audioUrl() && player.playbackError()"></audio>
     <small class="queue-hint"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 10V6h15m-4-4 4 4-4 4M20 14v4H5m4-4-4 4 4 4" /></svg><span>{{ player.playlist() ? 'Playlist : ' + player.playlist()?.name : 'Enchaînement automatique dans l’ordre de la bibliothèque.' }}</span></small>
+    @if (player.playlist()?.shuffled) { <small role="status">Lecture aléatoire · Chaque morceau une fois</small> }
     @if (player.advancing()) { <small role="status">Recherche du morceau suivant…</small> }
     @if (player.nextError()) {
       <p role="alert">{{ player.nextError() }}</p>

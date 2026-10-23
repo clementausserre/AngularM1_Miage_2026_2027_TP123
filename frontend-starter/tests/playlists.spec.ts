@@ -55,6 +55,17 @@ it('starts playback through the shared player and renames without changing track
   request.flush({ ...playlist, name: 'Updated', version: 4 });
   expect(component.editing()).toBe(false); http.verify();
 });
+it('starts shuffled playback and disables it for an empty playlist', () => {
+  const { component, fixture, player, http } = setup();
+  const button = [...fixture.nativeElement.querySelectorAll('button')].find((item: unknown) => (item as HTMLButtonElement).textContent?.includes('Lecture aléatoire')) as HTMLButtonElement;
+  button.click();
+  expect(player.playPlaylist).toHaveBeenCalledWith(playlist, 0, true);
+  component.selected.set({ ...playlist, tracks: [], trackCount: 0 });
+  fixture.detectChanges();
+  expect(button.disabled).toBe(true);
+  http.verify();
+});
+
 it('only stops playback when deleting the active playlist after confirmation', () => {
   const { component, http, player } = setup();
   vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);

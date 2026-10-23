@@ -160,6 +160,9 @@ Le contrat détaillé est dans `API_CONTRACT.md`.
   avec les flèches. Les commandes restent utilisables au clavier et sur mobile.
 - **Tout lire** lance son ordre ; cliquer sur un morceau commence à cet endroit.
   Le lecteur permanent garde la file pendant la navigation et s'arrête à la fin.
+- **Lecture aléatoire** mélange la file pour jouer chaque morceau une fois,
+  sans modifier l'ordre enregistré. Le lecteur indique ce mode ; **Tout lire**
+  ou un clic sur un morceau relance la lecture dans l'ordre de la playlist.
 - Supprimer une playlist conserve les morceaux dans la bibliothèque.
 
 Les playlists sont privées et stockées dans MongoDB, avec au maximum 200 morceaux
@@ -173,3 +176,39 @@ l'index sont préparés au démarrage ; vérification manuelle possible avec
 `cd backend` puis `npm run db:playlists`. Cette préparation a été exécutée sur
 la base configurée le 9 octobre 2026 : collection `playlists` accessible et index
 sur propriétaire/date/identifiant présent, sans création de données de test.
+
+## Jams entre amis — salons et invitations
+
+L’onglet **Jams**, également accessible depuis **Amis**, permet de créer un salon,
+d’inviter des amis acceptés et de retrouver les **Invitations reçues**. Accepter
+une invitation ouvre le salon et sa liste de participants. L’hôte voit aussi les
+invitations en attente. Chaque hôte anime une seule jam active ; un salon accueille
+20 participants maximum, invitations comprises.
+
+Un invité peut **Quitter la jam** après confirmation. L’hôte dispose de **Fermer
+la jam pour tous**, qui annule aussi les invitations. Fermer le navigateur ne
+quitte pas le salon : les membres sont conservés en base, sans indication de
+présence en ligne. Les informations s’actualisent toutes les 10 secondes sur la
+page visible, ou avec **Actualiser**. La liste des amis se rafraîchit manuellement.
+
+**Cette première étape prépare le salon ; elle ne synchronise pas encore la
+musique et ne partage aucun fichier audio.** Le lecteur personnel reste indépendant.
+
+Redémarrer le backend pour charger les routes et préparer la collection `jams`
+et ses index. Aucune dépendance supplémentaire ni modification des comptes
+existants n’est nécessaire. Les tests n’utilisent pas Atlas.
+
+Pour essayer à deux, utiliser deux profils de navigateur ou une fenêtre privée
+avec deux comptes déjà amis. Le premier crée une jam puis invite le second.
+Le second ouvre **Jams → Invitations reçues**, accepte, puis les deux vérifient
+la liste des participants. Tester ensuite un départ, une nouvelle invitation,
+un refus et une fermeture par l’hôte. Les routes sont décrites dans `API_CONTRACT.md`.
+
+Vérifications du 23 octobre 2026 : **28 tests backend, 146 tests frontend et build
+Angular réussis**. Le parcours dans Chrome avec deux comptes isolés a également
+réussi (API réelle, persistance simulée, aucune connexion Atlas). Pour le rejouer
+après `npm run build` dans `frontend-starter`, lancer depuis la racine :
+`node backend/scripts/check-jams-browser.mjs`. Le script utilise Chrome sous
+Windows par défaut ; `CHROME_PATH` permet de choisir son exécutable. Il crée puis
+nettoie ses profils temporaires. Les requêtes authentifiées et les mises en page
+à 390 et 900 pixels sont vérifiées. Un essai avec vos comptes et Atlas reste à faire.

@@ -1,4 +1,4 @@
-import { Component, DestroyRef, inject, signal } from '@angular/core';
+import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -20,6 +20,7 @@ export class PlaylistsPageComponent {
   readonly id = signal<string | null>(null);
   readonly items = signal<PlaylistSummary[]>([]);
   readonly selected = signal<Playlist | null>(null);
+  readonly shuffled = computed(() => this.player.playlist()?.id === this.selected()?.id && this.player.playlist()?.shuffled === true);
   readonly page = signal(1);
   readonly pages = signal(1);
   readonly loading = signal(false);

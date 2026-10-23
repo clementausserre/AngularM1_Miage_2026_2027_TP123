@@ -3,6 +3,7 @@
     <button type="button" class="add" (click)="openAdd(addDialog)">+ Ajouter un ami</button>
   </div>
   <app-friend-code />
+  <p><a routerLink="/jams">Créer une jam ou retrouver mes invitations →</a></p>
   <div class="toolbar">
     <nav aria-label="Listes d’amis">
       <button type="button" [class.active]="kind() === 'accepted'" [attr.aria-pressed]="kind() === 'accepted'" (click)="changeKind('accepted')" [disabled]="busy()">Mes amis</button>

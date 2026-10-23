@@ -28,16 +28,22 @@ export class PlayerService {
   readonly audioError = signal('');
   readonly advancing = signal(false);
   readonly nextError = signal('');
-  readonly playlist = signal<{ id: string; name: string } | null>(null);
+  readonly playlist = signal<{ id: string; name: string; shuffled: boolean } | null>(null);
   private queue: Track[] = [];
   private selection = 0;
 
-  playPlaylist(playlist: Playlist, index = 0): void {
-    const track = playlist.tracks[index];
-    if (!track) return;
+  playPlaylist(playlist: Playlist, index = 0, shuffled = false): void {
+    if (!playlist.tracks[index]) return;
     this.queue = [...playlist.tracks];
-    this.playlist.set({ id: playlist.id, name: playlist.name });
-    this.loadTrack(track);
+    if (shuffled) {
+      // Fisher–Yates: shuffle the playback snapshot without changing the saved order.
+      for (let i = this.queue.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [this.queue[i], this.queue[j]] = [this.queue[j], this.queue[i]];
+      }
+    }
+    this.playlist.set({ id: playlist.id, name: playlist.name, shuffled });
+    this.loadTrack(this.queue[shuffled ? 0 : index]);
   }
 
   retry(): void {

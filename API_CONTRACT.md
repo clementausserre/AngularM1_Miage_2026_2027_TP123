@@ -280,3 +280,60 @@ sélection depuis la bibliothèque quitte ce mode. La suppression locale de la
 playlist en cours arrête sa lecture ; une suppression depuis un autre onglet
 n'efface pas la copie déjà lancée. Déconnexion et rechargement complet effacent
 la file. Aucun partage de playlist avec des amis dans cette première version.
+
+## Jams — étape 1 : salons et invitations
+
+Base `/api/jams`. Toutes les routes exigent un JWT et une session valide, avec
+`Cache-Control: private, no-store`. Les identités viennent du JWT, jamais du corps.
+Une jam terminée ou inaccessible renvoie 404. Seuls les participants peuvent lire
+le détail ; une invitation permet uniquement de voir le résumé dans sa liste.
+
+| Méthode | Route | Paramètres / corps | Succès |
+|---|---|---|---|
+| GET | `/` | Query `kind=joined\|invitations` (défaut joined), `page` entier 1..100000 (défaut 1) | `200 Page<JamSummary>`, 12 éléments par page |
+| POST | `/` | JSON `{name}` : chaîne de 1 à 100 caractères après trim | `201 {id}` ; le créateur devient hôte et premier participant |
+| GET | `/:id` | Identifiant MongoDB ; aucun corps | `200 Jam` : participant uniquement |
+| POST | `/:id/invitations` | JSON `{userId}` : identifiant d’un ami accepté | `204` : hôte uniquement, invitation créée |
+| PUT | `/:id/membership` | Aucun corps requis | `204` : le destinataire accepte son invitation et devient participant |
+| DELETE | `/:id/invitations/me` | Aucun corps | `204` : le destinataire refuse son invitation |
+| DELETE | `/:id/membership` | Aucun corps | `204` : un invité quitte ; l’hôte ferme la jam pour tous |
+
+`JamSummary` est `{id,name,host:{id,name},createdAt,role}` ; `role` vaut `host`,
+`participant` ou `invited` pour l’utilisateur courant. `Jam` ajoute
+`participants: Array<{id,name}>` et `invitations: Array<{id,name}>` (ce dernier
+tableau est vide pour les non-hôtes). Aucun email, code ami ou fichier n’est exposé.
+Les listes ne contiennent que les jams actives, triées par création puis
+identifiant décroissants. Les champs supplémentaires du corps et les query
+inconnues sont ignorés.
+
+Une personne peut animer une seule jam active, imposé par un index unique partiel
+sur `hostId`. Elle peut participer à plusieurs salons. Chaque jam réserve au plus
+20 places, hôte, participants et invitations compris. Un ami ne peut figurer deux
+fois ni être simultanément invité et participant. Seul l’hôte invite, et l’amitié
+acceptée est vérifiée à l’envoi et à l’acceptation. Retirer ensuite une amitié
+n’expulse pas automatiquement un participant existant. La vérification d’amitié
+et l’écriture du salon ne forment pas une transaction entre collections.
+
+La collection `jams` stocke `name`, `hostId`, `active`, `participantIds`,
+`invitedIds`, `version` et les dates. Les mutations comparent la version lue puis
+l’incrémentent atomiquement : une modification concurrente retourne 409, sans
+écraser l’autre opération. Accepter à nouveau une invitation traitée retourne
+404 (ou 409 en cas de concurrence). Un départ retire le participant ; revenir
+nécessite une nouvelle invitation. La fermeture par l’hôte désactive le salon et
+vide participants et invitations. Le document fermé reste en base sans être
+exposé par ces routes. Fermer l’onglet ou se déconnecter ne quitte pas la jam ;
+la liste décrit les membres, pas leur présence en ligne.
+
+Erreurs JSON `{message}` : `400` nom, identifiant d’invité ou pagination invalide,
+auto-invitation ; `401` session absente/invalide/révoquée ; `404` jam inaccessible,
+identifiant de jam invalide, ami indisponible, invitation absente/déjà traitée ;
+`409` jam déjà animée, invitation en double, capacité atteinte, amitié retirée
+avant acceptation ou écriture concurrente ; `500` erreur interne ; `503`
+vérification de session indisponible.
+
+Le frontend actualise les salons/invitations toutes les 10 secondes quand la
+page Jams est visible, hors mutation ou confirmation de départ, et propose
+Actualiser. La liste d’amis est paginée avec une actualisation manuelle. Cette
+étape ne fournit ni événements WebSocket, ni file audio partagée, ni lecture
+synchronisée, ni nouveaux droits d’accès aux fichiers. Les index sont préparés
+au démarrage avant l’ouverture du serveur.

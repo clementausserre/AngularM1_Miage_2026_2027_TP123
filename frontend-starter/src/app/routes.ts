@@ -15,6 +15,8 @@ export const routes: Routes = [
   { path: 'profile', component: ProfilePageComponent, canActivate: [authGuard] },
   { path: 'tracks', component: TracksPageComponent, canActivate: [authGuard] },
   { path: 'friends', component: FriendsPageComponent, canActivate: [authGuard] },
+  { path: 'jams', loadComponent: () => import('./components/jams-page/jams-page').then(module => module.JamsPageComponent), canActivate: [authGuard] },
+  { path: 'jams/:id', loadComponent: () => import('./components/jams-page/jams-page').then(module => module.JamsPageComponent), canActivate: [authGuard] },
   { path: 'playlists', component: PlaylistsPageComponent, canActivate: [authGuard] },
   { path: 'playlists/:id', component: PlaylistsPageComponent, canActivate: [authGuard] },
   { path: '**', redirectTo: 'tracks' },
