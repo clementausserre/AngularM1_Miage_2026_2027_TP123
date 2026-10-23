@@ -1,15 +1,46 @@
 # TP3 — Rapport des tests
 
-Exécution du 6 octobre 2026, branche `tp3-finalisation`. Aucun test ne dépend d'un backend lancé ni de MongoDB :
+Première exécution le 6 octobre 2026 sur la branche `tp3-finalisation`. Dernière exécution le **16 octobre 2026** sur `main`, après l'ajout du lecteur permanent, des amis et des playlists (TD4).
+
+Aucun test ne dépend d'un backend lancé ni de MongoDB :
 - **frontend** : services réels branchés sur `HttpTestingController`, ou composants avec un `TrackService` / `MatSnackBar` simulés ;
 - **backend** : serveur Express et JWT réels, accès Mongoose simulés avec `t.mock.method`.
 
+### Résultats du 16 octobre 2026
+
 | Commande | Résultat observé |
 |---|---|
-| `cd frontend-starter && npm test` (`ng test --watch=false`) | **10 fichiers, 98 tests réussis, 0 échec** (8 octobre, après fusion avec `main` : synchronisation entre onglets et couvertures inclus) |
-| `cd frontend-starter && npm run test:vitest` (vitest seul, sans `covers.spec.ts` qui exige `ng test`) | **9 fichiers, 93 tests réussis, 0 échec** |
-| `cd backend && npm test` (`node --test`) | **16 tests réussis, 0 échec** (dont les tests des couvertures du binôme) |
+| `cd frontend-starter && npm test` (`ng test --watch=false`) | **14 fichiers, 131 tests réussis, 0 échec** |
+| `cd backend && npm test` (`node --test`) | **23 tests réussis, 0 échec** (16 tests, dont 7 sous-tests dans `covers.test.js`) |
 | `cd frontend-starter && npm run build` | **Compilation réussie** (`Application bundle generation complete`) |
+
+Répartition des 131 tests frontend :
+
+| Fichier | Tests | Contenu |
+|---|---|---|
+| `tracks-page.spec.ts` | 33 | upload et progression, suppression, lecture, synchronisation entre onglets, couvertures, enchaînement et playlists dans le lecteur |
+| `auth-forms.spec.ts` | 13 | formulaires de connexion et d'inscription |
+| `auth-return-url.spec.ts` | 13 | destinations de retour autorisées ou refusées |
+| `profile-page.spec.ts` | 12 | chargement et modification du profil |
+| `auth-interceptor.spec.ts` | 11 | ajout du JWT, traitement des `401` |
+| `http-services.spec.ts` | 7 | requêtes HTTP de `AuthService` et `TrackService` |
+| `auth-sync.spec.ts` | 7 | changement de session dans un autre onglet |
+| `password-form.spec.ts` | 7 | changement de mot de passe |
+| `playlists.spec.ts` | 7 | playlists (TD4) |
+| `library-sync.spec.ts` | 5 | synchronisation de la bibliothèque entre onglets |
+| `friends.spec.ts` | 5 | amis (TD4) |
+| `covers.spec.ts` | 5 | couvertures |
+| `auth-navigation.spec.ts` | 4 | guards |
+| `audio-player.spec.ts` | 2 | lecteur permanent (TD4) |
+
+### Historique
+
+| Date | Frontend (`npm test`) | Backend |
+|---|---|---|
+| 6 octobre 2026 | 79 tests, 8 fichiers (vitest) | 8 tests |
+| 8 octobre 2026 (fusion avec `main`) | 98 tests, 10 fichiers | 16 tests |
+| 8 octobre 2026 (revue avant TD4) | 110 tests, 11 fichiers | 19 tests |
+| 16 octobre 2026 | **131 tests, 14 fichiers** | **23 tests** |
 
 ## 1. Tests HTTP des services — `frontend-starter/tests/http-services.spec.ts` (nouveau)
 
@@ -20,6 +51,7 @@ Ces tests vérifient l'URL, la méthode, les paramètres et le corps de chaque r
 | `AuthService.login()` envoie `POST /api/auth/login` | Méthode POST, corps `{ email, password }` ; après la réponse, token dans le signal `token` et dans `localStorage['gpc_token']`, utilisateur dans `currentUser` | ✅ |
 | `AuthService.login()` après un 401 | Erreur 401 propagée ; aucun token stocké | ✅ |
 | `TrackService.list(2, 5)` | `GET /api/tracks?page=2&limit=5`, page renvoyée telle quelle | ✅ |
+| `TrackService.get(id)` (ajouté le 8 octobre) | `GET /api/tracks/:id` : métadonnées seules du morceau en lecture, sans téléchargement audio | ✅ |
 | `TrackService.delete('abc')` | `DELETE /api/tracks/abc`, sans corps ; la réponse 204 termine l'observable | ✅ |
 | `TrackService.delete()` sur une piste absente ou étrangère | Erreur 404 propagée au composant | ✅ |
 | `TrackService.upload()` | `POST /api/tracks`, `reportProgress: true`, `FormData` avec `audio` (fichier) et `title` ; événements reçus dans l'ordre `Sent` → `UploadProgress (3/5)` → `Response` | ✅ |
@@ -89,13 +121,15 @@ Vérification manuelle à faire, avec le backend connecté et deux onglets sur �
 - importer une piste dans le premier : elle apparaît dans le second ;
 - la supprimer : elle disparaît du second.
 
-## 7. Preuves Network — à compléter par le binôme
+## 7. Preuves Network
 
-Non réalisées : le backend ne pouvait pas se connecter à MongoDB Atlas, car l'IP n'était pas autorisée.
+Réalisées le 16 octobre 2026, avec le backend connecté à MongoDB Atlas (les premières tentatives avaient échoué car l'IP n'était pas autorisée). Le token est masqué sur chaque capture.
 
-- [ ] Capture d'une requête `DELETE /api/tracks/:id` → 204 après confirmation (masquer le token)
-- [ ] Capture de l'upload `POST /api/tracks` (multipart) et de la barre de progression
-- [ ] Console : aucune erreur inattendue, aucun mot de passe ni JWT affiché
+- [x] Capture d'une requête `DELETE /api/tracks/:id` → 204 après confirmation : [Suppression_DELETE.png](Capture_Network/Suppression_DELETE.png)
+- [x] Capture de l'upload `POST /api/tracks` (multipart) et de la barre de progression, en « 3G » : [Upload_Progression.png](Capture_Network/Upload_Progression.png)
+- [x] Console : aucune erreur venant de l'application, aucun mot de passe ni JWT affiché. Seule ligne rouge : `GET /favicon.ico 404`, requête automatique du navigateur (le projet n'a pas d'icône).
+
+Les captures du TP2 (pagination, upload multipart, lecture authentifiée) sont dans [`TP2-Rendu/Capture_Network/`](../TP2-Rendu/Capture_Network/) et commentées dans [`TP2-Rendu/Questions.md`](../TP2-Rendu/Questions.md).
 
 ## 8. Corrections de la revue avant TD4 — 8 octobre 2026
 
@@ -126,43 +160,27 @@ onglet. Le fichier audio est une fixture synthétique ; cet essai ne valide pas
 la qualité de lecture d'un véritable morceau. Les fichiers temporaires sont
 nettoyés à la fin.
 
-Ces résultats ne remplacent pas les captures Network avec Atlas ni les
-explications personnelles encore demandées dans la section 7.
+Ces résultats complètent les captures Network réalisées avec Atlas
+(section 7).
 
-## 9. Jams — salons et invitations, 23 octobre 2026
+## 9. Tests ajoutés avec le TD4 — 8 et 9 octobre 2026
 
-Première étape uniquement : création, invitations entre amis, acceptation/refus,
-participants, départ et fermeture par l’hôte. Aucun audio partagé ou synchronisé.
+Ces fonctionnalités dépassent le TP3, mais leurs tests font partie des suites lancées ci-dessus. Les tests du TP3 (sections 1 à 4) passent toujours après ces ajouts.
 
-| Commande | Résultat observé |
-|---|---|
-| `cd backend` puis `npm test` | 28 tests réussis |
-| `cd frontend-starter` puis `npm test` | 146 tests réussis dans 15 fichiers |
-| `cd frontend-starter` puis `npm run build` | Compilation réussie |
-| À la racine : `node backend/scripts/check-jams-browser.mjs` | Parcours Chrome réussi avec deux comptes isolés et MongoDB simulé |
+**Frontend**
 
-`backend/test/jams.test.js` vérifie le cycle de vie par de vraies requêtes HTTP :
-authentification, accès des seuls participants, validation des entrées, refus des
-non-amis, acceptation unique, départ, fermeture, concurrence, pagination et limite
-de 20 places. L’adaptateur de test utilise la validation Mongoose et simule les
-écritures conditionnelles ; il ne prouve pas le fonctionnement d’un index sur une
-instance MongoDB réelle. Les index sont initialisés au démarrage du backend.
+| Fichier | Ce qui est vérifié | Observé |
+|---|---|---|
+| `audio-player.spec.ts` | Le lecteur permanent s'arrête à la déconnexion ou quand la session change | ✅ (2 cas) |
+| `tracks-page.spec.ts` (lecteur) | Enchaînement automatique sur la page suivante et arrêt au dernier morceau ; annulation d'un enchaînement en attente ; nouvel essai après échec ; reprise du même morceau sans nouveau téléchargement ; lecture d'une playlist dans son ordre, morceau manquant sauté | ✅ |
+| `friends.spec.ts` | Route protégée ; recherche confirmée avant envoi, recherche obsolète annulée ; doublon refusé ; acceptation avec mise à jour de la pastille ; confirmation conservée si la suppression échoue | ✅ (5 tests) |
+| `playlists.spec.ts` | Routes protégées ; réordonnancement avec la version attendue ; conflit d'édition signalé ; lecture via le lecteur partagé ; arrêt seulement si la playlist active est supprimée ; création puis navigation ; ajout sans double soumission | ✅ (7 tests) |
 
-`frontend-starter/tests/jams.spec.ts` vérifie les routes protégées, le retour après
-authentification, les méthodes et corps HTTP, les doubles clics, les erreurs,
-les actions selon le rôle, la confirmation de départ, l’actualisation et
-l’annulation des requêtes à la navigation ou à la destruction.
+**Backend**
 
-Le script navigateur utilise le build Angular et Express réels avec une
-persistance simulée et deux profils Chrome temporaires. Il vérifie création,
-invitation, acceptation, participants, rechargement de l’URL du salon, départ et
-annulation, refus, fermeture, authentification des requêtes via les événements
-Network, absence d’exceptions JavaScript et absence de débordement horizontal à
-390 et 900 pixels. Aucun compte ni document Atlas n’est créé.
-
-Deux problèmes ont été rencontrés puis corrigés : le nouveau lien vers Jams
-nécessitait `provideRouter([])` dans les tests de la page Amis ; le rechargement
-d’une URL imbriquée nécessitait `<base href="/">` dans `src/index.html` pour charger
-les ressources depuis la racine. Les vérifications ci-dessus ont réussi après
-ces corrections. Les essais manuels avec les comptes du binôme et Atlas restent
-à réaliser après redémarrage du backend.
+| Fichier | Ce qui est vérifié | Observé |
+|---|---|---|
+| `friends.test.js` | Index uniques (codes, paires) ; cycle HTTP complet des amis, confidentialité, validation, requêtes concurrentes | ✅ |
+| `playlists.test.js` | Limites du schéma et doublons ; cycle HTTP des playlists privées, ordre, éditions concurrentes, morceaux supprimés | ✅ |
+| `registration.test.js` | Secret JWT obligatoire ; validation de l'inscription (types, limite de 72 octets UTF-8) avant persistance et hachage | ✅ |
+| `security.test.js` (ajout) | Métadonnées d'une piste : JWT exigé, propriétaire contrôlé, noms de fichiers internes jamais renvoyés | ✅ |

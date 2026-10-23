@@ -1,15 +1,35 @@
 # Guitar Practice Cloud — package étudiant
 
-Ce dépôt contient uniquement les ressources nécessaires aux trois TP :
-`backend/` et `frontend-starter/`, ainsi que les sujets et documents utiles.
+Ce dépôt contient les ressources des TP : `backend/` (Express, Mongoose,
+MongoDB Atlas) et `frontend-starter/` (Angular), ainsi que les sujets, les
+documents utiles et nos rendus.
+
+## Sommaire
+
+- [Guitar Practice Cloud — package étudiant](#guitar-practice-cloud--package-étudiant)
+  - [Sommaire](#sommaire)
+  - [Prérequis](#prérequis)
+  - [Démarrer le backend](#démarrer-le-backend)
+  - [Démarrer le frontend](#démarrer-le-frontend)
+  - [Tests et build](#tests-et-build)
+  - [TP1 — Authentification et profil](#tp1--authentification-et-profil)
+  - [TP2 — Bibliothèque, upload et lecture audio](#tp2--bibliothèque-upload-et-lecture-audio)
+    - [Avancé — Couvertures](#avancé--couvertures)
+  - [TP3 — Suppression, progression d'upload et tests](#tp3--suppression-progression-dupload-et-tests)
+  - [TD4 — Lecteur permanent](#td4--lecteur-permanent)
+  - [TD4 — Amis](#td4--amis)
+  - [TD4 — Playlists personnelles](#td4--playlists-personnelles)
+  - [Rendus](#rendus)
+  - [Documents de travail](#documents-de-travail)
 
 ## Prérequis
 
 - Node.js 22 ou plus récent ;
 - un compte MongoDB Atlas par binôme ;
-- Git et un navigateur récent.
-- Un IDE de qualité
-- Recommandé : un abonnement à un 
+- Git et un navigateur récent ;
+- un IDE (ex : VS Code) ;
+- recommandé : un abonnement à un assistant IA (voir
+  [CONSEILS_POUR_UTIISER_ASSISTANT_AI.md](CONSEILS_POUR_UTIISER_ASSISTANT_AI.md)).
 
 Consulter [ATLAS_SETUP.md](ATLAS_SETUP.md) pour créer la base de données.
 
@@ -31,7 +51,8 @@ npm install
 npm start
 ```
 
-Le backend écoute normalement sur `http://localhost:3000`.
+Le backend écoute normalement sur `http://localhost:3000`. Si Atlas refuse la
+connexion, vérifier que votre adresse IP est autorisée dans **Network Access**.
 
 ## Démarrer le frontend
 
@@ -44,53 +65,131 @@ npm start
 ```
 
 Ouvrir `http://localhost:4200`. Le compte de démonstration est
-`demo@example.com` / `Demo1234!`.
+`demo@example.com` / `Demo1234!`. Le proxy (`proxy.conf.json`) redirige `/api`
+vers `http://localhost:3000`.
 
-## Documents de travail
+Après récupération de nouveaux changements, relancer `npm install` dans
+`backend/` et `frontend-starter/`, puis redémarrer les deux serveurs.
 
-- [SUJET_ETUDIANT_TP1.md](SUJET_ETUDIANT_TP1.md), [SUJET_ETUDIANT_TP2.md](SUJET_ETUDIANT_TP2.md) et [SUJET_ETUDIANT_TP3.md](SUJET_ETUDIANT_TP3.md) : missions des trois séances ;
-- [API_CONTRACT.md](API_CONTRACT.md) : endpoints, authentification et formats échangés ;
-- [RAPPORT_IA_MODELE.md](RAPPORT_IA_MODELE.md) : modèle de compte rendu.
-- [CONSEILS_POUR_UTIISER_ASSISTANT_AI.md](CONSEILS_POUR_UTIISER_ASSISTANT_AI.md) : utiliser correctement un assistant IA, quel que soit l’outil choisi.
+## Tests et build
 
-Le backend contient également ses propres consignes pour les assistants :
-[`backend/AGENTS.md`](backend/AGENTS.md), [`backend/CLAUDE.md`](backend/CLAUDE.md),
-[`backend/GEMINI.md`](backend/GEMINI.md) et
-[`backend/best-practices.md`](backend/best-practices.md). Elles couvrent
-Node.js, Express, Mongoose, MongoDB, l’authentification, Multer, les uploads,
-les logs et les tests.
+Aucun test ne nécessite un backend lancé ni MongoDB : les requêtes HTTP sont
+simulées côté frontend et la persistance Mongoose est simulée côté backend.
 
-Les fichiers audio présents dans `frontend-starter/fichiers-audio-de-test/` sont
-des fixtures fournies pour les essais. Aucun fichier uploadé, dossier de
-dépendances (`node_modules`), fichier `.env` ou identifiant local n'est inclus.
+```bash
+cd backend && npm test               # node --test : serveur Express et JWT réels
+cd frontend-starter && npm test      # ng test --watch=false : tous les tests Angular (Vitest)
+cd frontend-starter && npm run build
+```
 
-## Couvertures — TP2
+Le détail des tests, avec résultats attendus et observés, est dans
+[TP3-Rendu/Rapport_Tests.md](TP3-Rendu/Rapport_Tests.md).
+
+## TP1 — Authentification et profil
+
+Sujet : [SUJET_ETUDIANT_TP1.md](SUJET_ETUDIANT_TP1.md). Flux étudié :
+composant → `AuthService` → `HttpClient` → API Express → MongoDB
+([schéma annoté du flux de connexion](schema-connexion.svg)).
+
+- **Inscription et connexion** (`/register`, `/login`) : Reactive Forms,
+  messages d'erreur sous les champs après sortie du champ ou soumission, focus
+  sur le premier champ invalide, bouton Afficher/Masquer le mot de passe,
+  blocage des doubles soumissions, erreurs HTTP traduites en messages clairs.
+  Les mots de passe font 8 caractères minimum et 72 octets UTF-8 maximum, avec
+  la même validation dans le formulaire et l'API.
+- **Session** : le JWT est stocké dans `localStorage` (jamais affiché ni
+  journalisé) ; l'utilisateur connecté est dans le Signal `currentUser`.
+  Redirection après connexion ou inscription, bouton Déconnexion qui nettoie
+  l'état local.
+- **Guards et intercepteur** : `authGuard` protège les pages privées et
+  mémorise la page demandée ; `guestGuard` empêche d'ouvrir `/login` et
+  `/register` une fois connecté. `auth.interceptor.ts` ajoute
+  `Authorization: Bearer …` ; un `401` sur une route protégée efface la session
+  et renvoie vers `/login` avec un message « session expirée », puis vers la
+  page initiale après reconnexion.
+- **Profil** (`/profile`) : chargement automatique via `GET /api/users/me`,
+  modification du nom (2 caractères minimum) via `PUT /api/users/me`, bouton
+  Annuler, messages de succès et d'erreur.
+- **Bonus — changement de mot de passe** : section Sécurité du profil,
+  `PUT /api/users/me/password` (mot de passe actuel exigé, hachage bcrypt).
+  Les anciens JWT sont ensuite refusés et l'utilisateur doit se reconnecter.
+- Un changement de compte ou une déconnexion dans un autre onglet recharge la
+  page pour effacer les données de l'ancien compte.
+
+Fichiers clés : `components/login-page`, `register-page`, `profile-page`,
+`password-form`, `shared/services/auth.service.ts`, `shared/guards/`,
+`shared/interceptors/auth.interceptor.ts`.
+
+## TP2 — Bibliothèque, upload et lecture audio
+
+Sujet : [SUJET_ETUDIANT_TP2.md](SUJET_ETUDIANT_TP2.md).
+
+- **Pagination serveur** (`/tracks`) : `TrackService.list(page, limit)` envoie
+  `GET /api/tracks?page=…&limit=5` à chaque changement de page ; rien n'est
+  découpé localement. Signaux `tracks`, `page`, `pages`, `loading` et `error`,
+  affichage avec `@for`, `@empty` et `@if`, boutons Précédent/Suivant désactivés
+  aux bornes, bouton Réessayer en cas d'erreur.
+- **Upload** : `FormData` avec `audio` et `title`. Avant l'envoi, le frontend
+  refuse les fichiers vides, de plus de 25 Mo ou d'un format autre que MP3,
+  WAV, OGG ou M4A ; le backend refait ces contrôles. Pendant l'envoi les
+  contrôles sont désactivés ; après succès le formulaire est vidé et la page 1
+  rechargée ; une erreur serveur conserve la sélection.
+- **Cards** responsives et accessibles : couverture, titre, nom original,
+  format, taille en Ko/Mo, date d'ajout, actions.
+- **Lecture authentifiée** : `GET /api/tracks/:id/audio` via `HttpClient`
+  (l'intercepteur ajoute le JWT, ce que ne ferait pas une URL placée dans
+  `src`) → `Blob` → `URL.createObjectURL` → `<audio>`. L'URL est révoquée quand
+  le morceau change, à la fermeture du lecteur et à la déconnexion. Les
+  fichiers audio ne sont téléchargés qu'au moment de la lecture.
+
+### Avancé — Couvertures
 
 Le formulaire d'import accepte une couverture facultative JPEG, PNG ou WebP
 (5 Mo maximum, non animée). Chaque card permet aussi d'ajouter, remplacer ou
 retirer une couverture. L'aperçu reste local jusqu'à l'enregistrement.
 Le serveur transforme les images en WebP de 800 pixels maximum et les conserve
 dans `backend/data/uploads/covers` lorsque le backend est lancé depuis son
-dossier. Seul le propriétaire peut les télécharger. Les anciennes pistes
-restent compatibles et affichent un visuel par défaut.
-
-Après récupération des changements, exécuter `npm install` dans `backend/`
-et `frontend-starter/`, puis redémarrer le backend et le frontend. Sharp est
-utilisé côté serveur ; jsdom permet d'exécuter les tests Angular.
-
-Vérification automatisée : `npm test` dans chaque dossier, puis `npm run build`
-dans `frontend-starter/`. Les tests backend utilisent de vrais uploads HTTP et
-un disque temporaire avec une persistance MongoDB simulée, sans toucher Atlas.
-Les tests frontend vérifient notamment le JWT, les aperçus et la révocation des
-URL temporaires. Dans le navigateur, vérifier dans Network le multipart
-`audio`/`title`/`cover` et les requêtes privées `/api/tracks/:id/cover`.
+dossier. Seul le propriétaire peut les télécharger
+(`/api/tracks/:id/cover`). Les anciennes pistes restent compatibles et
+affichent un visuel par défaut. Sharp est utilisé côté serveur.
 
 Les modifications de couverture actualisent également le lecteur et les autres
-onglets. Un changement de compte ou une déconnexion dans un autre onglet provoque
-un rechargement complet pour effacer les données et la lecture de l'ancien compte.
-Les mots de passe créés ou modifiés sont limités à 72 octets UTF-8 (minimum 8
-caractères), avec la même validation dans le formulaire et l'API.
-# Lecteur permanent — TD4
+onglets. Dans Network, vérifier le multipart `audio`/`title`/`cover` et les
+requêtes privées `/api/tracks/:id/cover`.
+
+Non réalisés (facultatifs) : Paginator Angular Material, pagination avec
+`aggregate-paginate-v2`, filtre par titre.
+
+## TP3 — Suppression, progression d'upload et tests
+
+Sujet : [SUJET_ETUDIANT_TP3.md](SUJET_ETUDIANT_TP3.md).
+
+- **Mission 5 — Suppression** : bouton Supprimer sur chaque card, confirmation
+  dans un `<dialog>`, signal `deleting` contre les doubles clics, messages dans
+  un `MatSnackBar`. L'appel passe par `TrackService.delete()` →
+  `DELETE /api/tracks/:id`. Après succès la liste est rechargée (page
+  précédente si la page devient vide) et le lecteur s'arrête si le morceau
+  supprimé était en cours. Un `404` (piste déjà supprimée dans un autre onglet
+  ou appartenant à un autre utilisateur) ferme la confirmation et recharge la
+  liste ; une erreur réseau la garde ouverte pour réessayer. La vraie
+  protection reste le backend, qui vérifie le JWT et filtre sur `ownerId`.
+- **Mission 6 — Progression de l'upload** : `observe: 'events'` et
+  `reportProgress: true`. États distincts : aucun envoi, envoi avec
+  pourcentage (`loaded / total`, indéterminé si `total` est inconnu),
+  finalisation à 100 %, réussite à la réponse du serveur, échec.
+- **Mission 7 — Tests** :
+  - frontend : `tests/http-services.spec.ts` (URL, méthode, paramètres et
+    corps de `AuthService.login()`, `TrackService.list()`, `delete()` et
+    `upload()` avec `HttpTestingController`), `tests/tracks-page.spec.ts`
+    (suppression et progression), plus les tests d'intercepteur et de guard ;
+  - backend (extension facultative) : `backend/test/security.test.js` —
+    `401` sans JWT ou avec un JWT invalide, upload sans fichier, type MIME
+    refusé, pagination, accès interdit à la piste d'un autre utilisateur.
+- **Amélioration — synchronisation entre onglets** : après un ajout ou une
+  suppression, `LibrarySyncService` prévient les autres onglets via
+  `BroadcastChannel` ; la liste se recharge aussi au retour sur un onglet.
+
+## TD4 — Lecteur permanent
 
 Le lecteur apparaît en bas de l'application après sélection d'un morceau et
 reste présent entre la bibliothèque et le profil. Les contrôles natifs du
@@ -106,13 +205,15 @@ existante. Aucun fichier audio n'est ajouté au localStorage. La navigation
 conserve la lecture, mais un rechargement complet de la page la réinitialise.
 La déconnexion, un changement de session ou la suppression du morceau arrêtent
 le lecteur et libèrent l'URL Blob. Les pochettes restent synchronisées, y
-compris lorsqu'on consulte le profil. Cette base pourra ensuite accueillir
-les playlists. À la fin d'un morceau, le lecteur charge automatiquement le
-suivant dans l'ordre affiché par la bibliothèque, y compris sur les pages
-suivantes. Il s'arrête après le dernier morceau, sans revenir au premier.
-Les métadonnées de la bibliothèque sont relues à chaque transition ; seul
-l'audio du morceau suivant est téléchargé. Une erreur réseau permet de
-réessayer l'enchaînement depuis le lecteur.
+compris lorsqu'on consulte le profil.
+
+À la fin d'un morceau, le lecteur charge automatiquement le suivant dans
+l'ordre affiché par la bibliothèque, y compris sur les pages suivantes. Il
+s'arrête après le dernier morceau, sans revenir au premier. Les métadonnées de
+la bibliothèque sont relues à chaque transition ; seul l'audio du morceau
+suivant est téléchargé. Une erreur réseau permet de réessayer l'enchaînement
+depuis le lecteur.
+
 ## TD4 — Amis
 
 Pour préparer ou vérifier les collections dans la base configurée par le backend :
@@ -151,6 +252,7 @@ La pastille compte les demandes reçues et se rafraîchit à la navigation ou au
 retour dans l'onglet. Les listes ont un bouton Actualiser ; elles ne sont pas
 encore en temps réel. Être amis ne donne aucun accès automatique aux morceaux.
 Le contrat détaillé est dans `API_CONTRACT.md`.
+
 ## TD4 — Playlists personnelles
 
 - Ouvrir **Playlists → Nouvelle playlist** pour créer une sélection.
@@ -177,38 +279,41 @@ l'index sont préparés au démarrage ; vérification manuelle possible avec
 la base configurée le 9 octobre 2026 : collection `playlists` accessible et index
 sur propriétaire/date/identifiant présent, sans création de données de test.
 
-## Jams entre amis — salons et invitations
+## Rendus
 
-L’onglet **Jams**, également accessible depuis **Amis**, permet de créer un salon,
-d’inviter des amis acceptés et de retrouver les **Invitations reçues**. Accepter
-une invitation ouvre le salon et sa liste de participants. L’hôte voit aussi les
-invitations en attente. Chaque hôte anime une seule jam active ; un salon accueille
-20 participants maximum, invitations comprises.
+- [TP1-Rendu/Questions.md](TP1-Rendu/Questions.md) : différence entre Signal et
+  `localStorage` ;
+- [TP1-Rendu/Capture_Network/](TP1-Rendu/Capture_Network/) : requête de
+  connexion (en-têtes et réponse) ;
+- [schema-connexion.svg](schema-connexion.svg) : schéma annoté du flux de
+  connexion ;
+- [TP2-Rendu/Questions.md](TP2-Rendu/Questions.md) : choix `Blob`/`ObjectURL`,
+  flux d'upload et de lecture, questions sur la mémoire, le buffering et le
+  streaming ;
+- [TP2-Rendu/Capture_Network/](TP2-Rendu/Capture_Network/) : pagination,
+  upload multipart et lecture audio authentifiée ;
+- [TP3-Rendu/Questions.md](TP3-Rendu/Questions.md) : sécurité de la
+  suppression, progression d'upload et questions de la restitution orale ;
+- [TP3-Rendu/Capture_Network/](TP3-Rendu/Capture_Network/) : suppression
+  (`DELETE` → 204) et progression de l'upload ;
+- [TP3-Rendu/Rapport_Tests.md](TP3-Rendu/Rapport_Tests.md) : rapport des tests ;
+- [RAPPORT_IA_MODELE.md](RAPPORT_IA_MODELE.md) : rapport d'usage de l'IA pour
+  chaque mission.
 
-Un invité peut **Quitter la jam** après confirmation. L’hôte dispose de **Fermer
-la jam pour tous**, qui annule aussi les invitations. Fermer le navigateur ne
-quitte pas le salon : les membres sont conservés en base, sans indication de
-présence en ligne. Les informations s’actualisent toutes les 10 secondes sur la
-page visible, ou avec **Actualiser**. La liste des amis se rafraîchit manuellement.
+## Documents de travail
 
-**Cette première étape prépare le salon ; elle ne synchronise pas encore la
-musique et ne partage aucun fichier audio.** Le lecteur personnel reste indépendant.
+- [SUJET_ETUDIANT_TP1.md](SUJET_ETUDIANT_TP1.md), [SUJET_ETUDIANT_TP2.md](SUJET_ETUDIANT_TP2.md) et [SUJET_ETUDIANT_TP3.md](SUJET_ETUDIANT_TP3.md) : missions des trois séances ;
+- [API_CONTRACT.md](API_CONTRACT.md) : endpoints, authentification et formats échangés ;
+- [RAPPORT_IA_MODELE.md](RAPPORT_IA_MODELE.md) : modèle de compte rendu ;
+- [CONSEILS_POUR_UTIISER_ASSISTANT_AI.md](CONSEILS_POUR_UTIISER_ASSISTANT_AI.md) : utiliser correctement un assistant IA, quel que soit l’outil choisi.
 
-Redémarrer le backend pour charger les routes et préparer la collection `jams`
-et ses index. Aucune dépendance supplémentaire ni modification des comptes
-existants n’est nécessaire. Les tests n’utilisent pas Atlas.
+Le backend contient également ses propres consignes pour les assistants :
+[`backend/AGENTS.md`](backend/AGENTS.md), [`backend/CLAUDE.md`](backend/CLAUDE.md),
+[`backend/GEMINI.md`](backend/GEMINI.md) et
+[`backend/best-practices.md`](backend/best-practices.md). Elles couvrent
+Node.js, Express, Mongoose, MongoDB, l’authentification, Multer, les uploads,
+les logs et les tests.
 
-Pour essayer à deux, utiliser deux profils de navigateur ou une fenêtre privée
-avec deux comptes déjà amis. Le premier crée une jam puis invite le second.
-Le second ouvre **Jams → Invitations reçues**, accepte, puis les deux vérifient
-la liste des participants. Tester ensuite un départ, une nouvelle invitation,
-un refus et une fermeture par l’hôte. Les routes sont décrites dans `API_CONTRACT.md`.
-
-Vérifications du 23 octobre 2026 : **28 tests backend, 146 tests frontend et build
-Angular réussis**. Le parcours dans Chrome avec deux comptes isolés a également
-réussi (API réelle, persistance simulée, aucune connexion Atlas). Pour le rejouer
-après `npm run build` dans `frontend-starter`, lancer depuis la racine :
-`node backend/scripts/check-jams-browser.mjs`. Le script utilise Chrome sous
-Windows par défaut ; `CHROME_PATH` permet de choisir son exécutable. Il crée puis
-nettoie ses profils temporaires. Les requêtes authentifiées et les mises en page
-à 390 et 900 pixels sont vérifiées. Un essai avec vos comptes et Atlas reste à faire.
+Les fichiers audio présents dans `frontend-starter/fichiers-audio-de-test/` sont
+des fixtures fournies pour les essais. Aucun fichier uploadé, dossier de
+dépendances (`node_modules`), fichier `.env` ou identifiant local n'est inclus.

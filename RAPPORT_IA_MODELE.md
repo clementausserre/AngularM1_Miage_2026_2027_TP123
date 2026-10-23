@@ -1,4 +1,4 @@
-# Rapport d'usage de l'IA - TP1
+# Rapport d'usage de l'IA — TP1, TP2, TP3 et TD4
 
 Pour chaque mission, détailler et fournir des explications concernant : objectif; prompt principal; plan proposé par l'agent; vérifications réalisées par le binôme; erreurs ou propositions rejetées; fichiers effectivement modifiés; preuve de fonctionnement; ce que chaque membre sait maintenant expliquer sans l'agent.
 
@@ -7,6 +7,30 @@ Pour chaque mission, détailler et fournir des explications concernant : objecti
 Ce brouillon a été préparé avec Codex à partir de nos échanges. Il doit être relu et complété par le binôme, notamment pour les vérifications manuelles, les captures et les apprentissages individuels. Les éléments indiqués « à compléter » ne sont pas des vérifications réalisées.
 
 Assistant utilisé : Codex. Date des échanges : 17 septembre 2026.
+
+Pour la session du 16 octobre 2026 (documentation et rendus, voir la dernière section), l'assistant utilisé est Claude Code.
+
+## Binôme et répartition du travail
+
+- **Clément Ausserre** (commits `clementausserre`) ;
+- **Nicolas Marques** (commits `Nicolas Marques` et `Winchezy`, même adresse).
+
+Répartition établie à partir de l'historique Git :
+
+| Partie | Clément Ausserre | Nicolas Marques |
+|---|---|---|
+| TP1 — Mission 1 (inscription, connexion, guards, intercepteur, 401) | `ad3419a` TP1, `d99d4ed` amélioration du login et retour utilisateur | — |
+| TP1 — Profil et bonus mot de passe | `d6fb5b0` page Profil et changement de mot de passe (frontend et backend) | — |
+| TP2 — Mission 2 (pagination, Signal d'erreur) | inclus dans `ad3419a` | — |
+| TP2 — Mission 3 (upload, lecture, cards, header) | `67b8726` interface de lecture et header, `e3a7c18` CSS | — |
+| TP2 — Avancé : couvertures | `d55222e` | — |
+| TP3 — Mission 5 (suppression) | `b7ffdcb` bouton, confirmation et appel `TrackService.delete()` | `32874bf` SnackBar Angular Material et cas 404 |
+| TP3 — Mission 6 (progression de l'upload) | `77b32c6` barre d'upload | — |
+| TP3 — Mission 7 (tests) | tests de suppression et d'upload dans `tracks-page.spec.ts` | `64eac3b` tests HTTP des services et tests backend de sécurité |
+| TP3 — Synchronisation entre onglets | — | `e319b81` |
+| Fusion et consolidation | `cb63e65` corrections sur les TP1, TP2 et TP3 (secret JWT, inscription, sessions entre onglets) | `2bbcd0d` fusion de `tp3-finalisation` dans `main` |
+| TD4 — Lecteur permanent, design | `dd85a3b` enchaînement automatique et lecteur, `bec9fe7` refonte du design | — |
+| TD4 — Amis et playlists | `4720d34` amis, `4676a30` playlists | — |
 
 ## Mission 1 — Inscription, connexion et profil
 
@@ -65,7 +89,11 @@ Ces tests couvrent notamment la validation, les doubles soumissions, les guards,
 
 Un [schéma du déroulement de la connexion](schema-connexion.svg) a également été produit avec l’IA. C’est un support d’explication, pas une preuve de fonctionnement dans le navigateur.
 
-Vérifications réalisées personnellement par le binôme : **à compléter après exécution**.
+Vérifications réalisées personnellement par le binôme :
+
+- 17 septembre 2026 : connexion réussie observée dans Network, `POST /api/auth/login` → `200 OK`, sans mot de passe visible. Capture : ![Mission 1 : requête de connexion](TP1-Rendu/Capture_Network/Requete_Login_Header.png).
+- 16 octobre 2026 : réponse de la connexion avec le compte de démonstration, contenant `token` (valeur masquée) et l'objet `user` (`id`, `name`, `email`, `createdAt`), sans mot de passe. Capture : ![Mission 1 : réponse de connexion](TP1-Rendu/Capture_Network/Requete_Login_Response.png)
+- 16 octobre 2026, backend connecté à Atlas : une session restée dans le navigateur avait un token expiré. Les premières requêtes protégées ont reçu `401` (`jwt expired` dans les logs du backend), l'application a renvoyé vers `/login`, puis la reconnexion a réussi (`POST /api/auth/login` → `200`). C'est le scénario « retour à la connexion après une réponse 401 ».
 
 Captures à ajouter au projet, puis à lier ici :
 
@@ -87,8 +115,8 @@ Autres propositions rejetées ou corrections identifiées par le binôme : **à 
 
 À rédiger personnellement, sans affirmer un apprentissage non vérifié :
 
-- Membre 1 — nom : … ; je sais expliquer … ; point restant à revoir : …
-- Membre 2 — nom : … ; je sais expliquer … ; point restant à revoir : …
+- Membre 1 — **Clément Ausserre** ; a réalisé cette mission (`ad3419a`, `d99d4ed`, `d6fb5b0`) ; je sais expliquer le trajet d'un clic sur « Se connecter » (composant → `AuthService` → `HttpClient` → `POST /api/auth/login`, puis JWT dans `localStorage` et utilisateur dans le Signal `currentUser`), la différence entre les guards, qui décident de la navigation, et l'intercepteur, qui ajoute `Authorization: Bearer` et traite les `401`, et pourquoi un `401` sur `/api/auth/login` reste affiché dans le formulaire alors qu'un `401` sur `/api/tracks` renvoie vers `/login` ; point restant à revoir : les tests HTTP avec `HttpTestingController`, écrits par Nicolas.
+- Membre 2 — **Nicolas Marques** ; a écrit les tests HTTP de `AuthService.login()` (`64eac3b`) ; je sais expliquer ce que vérifient ces tests : `POST /api/auth/login` avec le corps `{ email, password }`, puis le token dans le Signal `token` et dans `localStorage`, l'utilisateur dans `currentUser`, et aucune session enregistrée après un `401` ; point restant à revoir : la validation des formulaires et les guards, codés par Clément.
 
 Questions utiles pour préparer cette partie : à quoi servent les validateurs ? Où est stocké le token ? Quelle différence entre un guard et un intercepteur ? Pourquoi un 401 sur `/login` n’a-t-il pas le même traitement qu’un 401 sur `/api/tracks` ?
 
@@ -172,7 +200,11 @@ Le backend n’a pas été modifié. Le Paginator Angular Material demandé dans
 
 L’assistant a exécuté `npm run build` après l’ajout du Signal d’erreur : compilation réussie. Aucun test automatisé spécifique à cette modification ni vérification Network n’a été effectué.
 
-Vérifications du binôme : **à réaliser et à compléter**.
+Vérifications du binôme (16 octobre 2026, backend connecté à Atlas) : scénarios 1 et 2 réalisés. Après l'import de plusieurs morceaux, le clic sur Suivant envoie `GET /api/tracks?page=2&limit=5` → `200 OK` ; la page affiche « Page 2 / 2 » et Suivant est désactivé.
+
+![Mission 2 : requête de la page 2 dans Network](TP2-Rendu/Capture_Network/Pagination_Page2.png)
+
+Les scénarios 3 à 5 (retour avec Précédent, coupure réseau, message d'erreur et nouvel essai) n'ont pas été capturés.
 
 Scénarios proposés pour constituer les preuves :
 
@@ -190,8 +222,8 @@ La partie avancée Angular Material reste à faire. Le fonctionnement avec plusi
 
 Propositions rejetées ou corrections identifiées par le binôme : **à compléter**.
 
-- Membre 1 — nom : … ; je sais expliquer … ; point restant à revoir : …
-- Membre 2 — nom : … ; je sais expliquer … ; point restant à revoir : …
+- Membre 1 — **Clément Ausserre** ; a réalisé la pagination et le Signal d'erreur (`ad3419a`) ; je sais expliquer comment `page` et `limit` arrivent dans l'URL grâce à l'option `params` de `HttpClient`, pourquoi chaque changement de page relance une requête au lieu de découper la liste dans Angular, et comment les Signals `loading` et `error` pilotent l'affichage avec `@if`, `@for` et `@empty` ; point restant à revoir : le calcul côté backend avec `skip`, `limit` et le plafond à 20.
+- Membre 2 — **Nicolas Marques** ; a écrit le test de `TrackService.list()` et le test backend de pagination (`64eac3b`) ; je sais expliquer comment le test vérifie `GET /api/tracks?page=2&limit=5` avec `HttpTestingController`, et ce que fait le backend : filtre `{ ownerId }`, tri par date décroissante, `skip((page - 1) * limit)` et `limit` plafonné à 20 ; point restant à revoir : l'affichage de la pagination dans le composant (Signals, `@for` / `@empty`, boutons), codé par Clément.
 
 Questions utiles : comment `page` et `limit` arrivent-ils dans l’URL ? Pourquoi ne faut-il pas découper la liste localement ? Comment le Signal `error` pilote-t-il l’affichage ?
 
@@ -219,7 +251,7 @@ Preuves automatisées : compilation Angular réussie ; 59 tests frontend réussi
 
 À vérifier par le binôme : changer le mot de passe d’un compte de test, constater le message après redirection, se reconnecter avec le nouveau mot de passe et vérifier qu’un autre navigateur reçoit un 401 avec l’ancienne session. Ajouter les captures sans afficher les mots de passe, le corps de la requête ni les tokens. Aucun contrôle visuel dans le navigateur n’a été effectué par l’assistant.
 
-À expliquer personnellement : différence entre hachage et chiffrement, nécessité du mot de passe actuel, limite bcrypt de 72 octets, mise à jour conditionnelle et révocation des sessions. Apprentissages individuels et captures : à compléter.
+À expliquer personnellement : différence entre hachage et chiffrement, nécessité du mot de passe actuel, limite bcrypt de 72 octets, mise à jour conditionnelle et révocation des sessions. Apprentissage individuel — **Clément Ausserre** (auteur de `d6fb5b0`) : je sais expliquer pourquoi le mot de passe actuel est exigé, pourquoi bcrypt hache le mot de passe (opération irréversible) au lieu de le chiffrer, et comment l'incrémentation de `sessionVersion` fait refuser les anciens JWT ; point restant à revoir : les tests backend de sécurité (`security.test.js`), écrits par Nicolas.
 
 ## TP2 — Upload, lecture et présentation de la bibliothèque (18 septembre 2026)
 
@@ -236,6 +268,18 @@ Fichiers : `frontend-starter/src/app/components/tracks-page/tracks-page.ts`, `.h
 Tests ajoutés : refus des fichiers invalides, doubles envois, réinitialisation après succès, conservation après erreur, respect du dernier choix audio, révocation des ObjectURL et formatage des tailles. Les appels HTTP sont simulés ; le rendu visuel et la lecture réelle restent à vérifier dans le navigateur.
 
 Preuves à compléter par le binôme : capture multipart contenant audio/title (sans token), carte après import, lecteur avec le titre choisi, message pour fichier invalide, contrôle mobile et lecture avec deux comptes pour vérifier la propriété. La validation frontend améliore le retour utilisateur mais ne remplace pas les contrôles backend. Le téléchargement Blob finit avant que le lecteur reçoive son URL : il ne s’agit pas d’une lecture progressive pendant la requête HttpClient.
+
+**Preuves réalisées (16 octobre 2026, backend connecté à Atlas).** Token masqué sur chaque capture.
+
+- Upload : `POST /api/tracks` → `201 Created`, `multipart/form-data`, JWT présent ; la carte « Test TP2 » apparaît et la page confirme l'import.
+  ![TP2 : en-têtes de l'upload](TP2-Rendu/Capture_Network/Upload_Headers.png)
+- Corps de l'upload : champs `audio` (binaire) et `title` uniquement.
+  ![TP2 : champs du FormData](TP2-Rendu/Capture_Network/Upload_Payload.png)
+- Lecture : `GET /api/tracks/:id/audio` → `200 OK`, `Content-Type: audio/mpeg`, `Accept-Ranges: bytes`, avec l'en-tête `Authorization`.
+  ![TP2 : réponse audio](TP2-Rendu/Capture_Network/Lecture_Audio.png)
+  ![TP2 : JWT envoyé avec la requête audio](TP2-Rendu/Capture_Network/Lecture_Audio_Authorization.png)
+
+Non capturés : message pour un fichier invalide, contrôle mobile, lecture avec deux comptes. Les réponses écrites aux questions du TP2 sont dans [`TP2-Rendu/Questions.md`](TP2-Rendu/Questions.md).
 
 Résultats des vérifications de l’assistant pour cette étape : compilation Angular réussie (npm run build) et 67 tests réussis dans 7 fichiers (npx vitest run tests), dont 8 tests de la bibliothèque. Aucun test dans un navigateur connecté au backend n’a été effectué.
 
@@ -303,7 +347,19 @@ Limites :
 - ce que vérifie un test d’intercepteur ou de guard ;
 - la différence entre un test unitaire (composant avec service simulé) et un test d’intégration (serveur Express réel interrogé par `fetch`).
 
-Apprentissages individuels et captures : à compléter.
+**Captures (16 octobre 2026, backend connecté à Atlas).** Token masqué.
+
+- Suppression : `DELETE /api/tracks/:id` → `204 No Content` après confirmation, rechargement de la liste et SnackBar « « Test 2 » a été supprimé. ».
+  ![TP3 : suppression](TP3-Rendu/Capture_Network/Suppression_DELETE.png)
+- Progression : en « 3G », barre à 70 % et bouton désactivé pendant que `POST /api/tracks` est en cours.
+  ![TP3 : progression de l'upload](TP3-Rendu/Capture_Network/Upload_Progression.png)
+- Console : aucune erreur venant de l'application, aucun mot de passe ni JWT ; seule ligne rouge, `GET /favicon.ico 404`, demandée automatiquement par le navigateur.
+
+Les réponses aux questions du TP3 sont dans [`TP3-Rendu/Questions.md`](TP3-Rendu/Questions.md).
+
+Apprentissages individuels :
+- **Clément Ausserre** — a réalisé le bouton de suppression avec confirmation (`b7ffdcb`) et la barre d'upload (`77b32c6`) ; je sais expliquer le flux carte → `TrackService.delete()` → `DELETE /api/tracks/:id`, le rôle du `<dialog>` de confirmation et du Signal `deleting` contre les doubles clics, et comment `observe: 'events'` et `reportProgress: true` donnent le pourcentage `loaded / total`, avec la raison pour laquelle 100 % n'est pas encore un succès (le serveur doit encore valider et enregistrer) ; point restant à revoir : les tests HTTP avec `HttpTestingController`.
+- **Nicolas Marques** — a réalisé le SnackBar et le cas 404 (`32874bf`), les tests HTTP et backend (`64eac3b`) ; je sais expliquer pourquoi le guard et l'interface ne protègent pas la suppression (le backend vérifie le JWT et filtre sur `{ _id, ownerId }`, d'où un `404` pour la piste d'un autre utilisateur), comment `HttpTestingController` vérifie l'URL, la méthode et le corps d'une requête sans backend ni MongoDB, et la différence entre un test unitaire (composant avec un faux `TrackService`) et un test d'intégration (vrai serveur Express interrogé par `fetch`) ; point restant à revoir : les composants de couverture et le traitement des images avec Sharp, réalisés par Clément.
 
 ### TP3 — Synchronisation de la bibliothèque entre onglets (8 octobre 2026)
 
@@ -344,9 +400,7 @@ Le backend, l’API et `API_CONTRACT.md` sont inchangés.
 **Demande.** Fusionner la branche `tp3-finalisation` dans `main`, qui avait reçu entre-temps le commit du binôme sur les images de couverture. En cas de conflit, conserver si possible le code des deux branches.
 
 **Conflits et résolutions :**
-- `frontend-starter/package.json` : les deux branches avaient ajouté `jsdom` (`^30.1.1` sur `main`, `^30.1.2` sur la branche TP3), et `^30.1.2` a été conservé. Les deux façons de lancer les tests sont gardées :
-  - `npm test` lance `ng test --watch=false`, configuré par le binôme dans `angular.json` et `tsconfig.spec.json`, qui exécute tous les tests, y compris `covers.spec.ts` ;
-  - `npm run test:vitest` lance vitest seul, sans `covers.spec.ts`, pour une vérification rapide.
+- `frontend-starter/package.json` : les deux branches avaient ajouté `jsdom` (`^30.1.1` sur `main`, `^30.1.2` sur la branche TP3), et `^30.1.2` a été conservé. `npm test` lance `ng test --watch=false`, configuré par le binôme dans `angular.json` et `tsconfig.spec.json`, qui exécute tous les tests, y compris `covers.spec.ts`.
 - `frontend-starter/package-lock.json` : la version de la branche TP3 a été reprise, car elle contenait déjà `jsdom` et le correctif de `npm audit fix`. `npm install` n’y a rien changé.
 
 **Fusions automatiques, relues par l’assistant :** `tracks-page.ts`, `.html` et `.spec.ts`. Les couvertures (sélecteur, éditeur, affichage) et la synchronisation entre onglets y cohabitent.
@@ -357,7 +411,6 @@ Le backend, l’API et `API_CONTRACT.md` sont inchangés.
 
 **Résultats observés :**
 - `npm test` frontend : 98 tests réussis dans 10 fichiers ;
-- `npm run test:vitest` : 93 tests réussis ;
 - `npm test` backend : 16 tests réussis ;
 - `npm run build` : réussi.
 
@@ -500,3 +553,33 @@ Chrome vérifie création depuis la bibliothèque, ajout de deux WAV, changement
 d'ordre, renommage, lecture dans l'ordre choisi pendant une navigation vers le
 profil, arrêt en fin de playlist, retrait et suppression sans effacer les pistes.
 Affichage mobile et non-régression des amis, couvertures et sessions vérifiés.
+
+## Documentation et rendus — 16 octobre 2026 (Nicolas Marques)
+
+Assistant utilisé : Claude Code.
+
+**Demandes.** Vérifier que le dépôt répond aux attendus des TP1, TP2 et TP3, mettre le README à jour, rédiger les réponses aux questions des TP2 et TP3, actualiser le rapport des tests, puis réaliser les captures Network et le contrôle de la console.
+
+**Réalisé avec l'assistant :**
+- bilan des TP1 à TP3 à partir des sujets : le code répondait aux attendus, mais il manquait des livrables (captures des TP2 et TP3, réponses écrites aux questions, apprentissages individuels) ;
+- `README.md` : sommaire, commandes de tests et de build, une section par TP, liens vers les rendus ;
+- `TP2-Rendu/Questions.md` : flux d'upload et de lecture avec fichiers et méthodes, choix `Blob`/`ObjectURL`, validation frontend et backend, questions sur la mémoire, le buffering et le streaming ;
+- `TP3-Rendu/Questions.md` : sécurité de la suppression, progression de l'upload, six questions de la restitution orale ;
+- `TP3-Rendu/Rapport_Tests.md` : résultats du jour et répartition des tests par fichier ;
+- complément du présent rapport à partir de l'historique Git (répartition du travail, vérifications réalisées).
+
+Les réponses s'appuient sur le code réel avec des références `fichier:ligne`. L'assistant a relu les routes backend (`res.sendFile`, filtre `{ _id, ownerId }`, middleware `auth`) avant de répondre.
+
+**Captures Network.** Le backend n'arrivait pas à joindre Atlas (`MongooseServerSelectionError`, `ETIMEDOUT`) : l'IP n'était pas autorisée dans Network Access. Après autorisation, l'assistant a lancé le backend et le frontend ; les captures ont été faites dans Chrome, puis rangées dans `TP2-Rendu/Capture_Network/` et `TP3-Rendu/Capture_Network/`. Deux captures où le JWT restait lisible ont été refaites avec masquage avant d'être ajoutées au dépôt.
+
+**Propositions rejetées ou corrections du binôme :**
+- ajout d'une icône d'onglet pour supprimer le `favicon.ico` en 404 : refusé, l'erreur vient du navigateur et non de l'application ;
+- formulation « IDE de qualité » reprise du README fourni : remplacée par « un IDE (ex : VS Code) ».
+
+**Vérifications observées :**
+- `npm test` frontend : 131 tests réussis dans 14 fichiers ;
+- `npm test` backend : 23 tests réussis ;
+- `npm run build` : réussi ;
+- navigateur avec Atlas : pagination, upload multipart, lecture authentifiée, suppression, progression et console vérifiés (captures ci-dessus).
+
+La capture de la réponse de connexion du TP1 (`TP1-Rendu/Capture_Network/Requete_Login_Response.png`) montrait le début d'un ancien JWT ; elle a été refaite avec la valeur du token masquée.

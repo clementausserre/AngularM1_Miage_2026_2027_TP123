@@ -5,8 +5,7 @@
     "scripts": {
         "start": "ng serve --proxy-config proxy.conf.json",
         "build": "ng build",
-        "test": "ng test --watch=false",
-        "test:vitest": "vitest run tests --exclude tests/covers.spec.ts"
+        "test": "ng test --watch=false"
     },
     "dependencies": {
         "@angular/cdk": "~22.1.0",
